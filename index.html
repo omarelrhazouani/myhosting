@@ -102,9 +102,20 @@
     }
     .card:hover { transform: translateY(-7px); box-shadow: var(--shadow-hover); }
     .icon {
-      width: 58px; height: 58px; display: grid; place-items: center; border-radius: 16px; background: linear-gradient(135deg, var(--soft), var(--accent));
-      color: var(--primary-dark); font-weight: 800; margin-bottom: 18px;
-    }
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--soft), var(--accent));
+  color: var(--primary-dark);
+  font-weight: 800;
+  margin-bottom: 18px;
+  line-height: 1.35;
+}
     .card h3 { color: var(--primary-dark); margin-bottom: 10px; }
     .card p { color: var(--steel); margin-bottom: 14px; }
     .tag { display: inline-block; padding: 7px 12px; border-radius: 999px; background: #f1f5f8; color: var(--steel); font-size: 0.9rem; font-weight: 600; }
@@ -211,7 +222,7 @@
         </article>
 		
 		<article class="card">
-          <div class="icon">NZ</div>
+          <div class="icon">PhantoRad NZ</div>
 		  <div>
 		    <img src="img/NZ.png" alt="Fantôme Homogène - Tête pédiatrique" style="width: 100%; height: 100%; object-fit: contain; margin-bottom: 15px; display: block;">
 		  </div>
@@ -221,7 +232,7 @@
         </article>
 		
 		<article class="card">
-          <div class="icon">GO Phantome</div>
+          <div class="icon">PhantoRad GO</div>
 		  <div>
 		    <img src="img/GO_phantome/GO.png" alt="Fantôme Homogène - Tête pédiatrique" style="width: 100%; height: 100%; object-fit: contain; margin-bottom: 15px; display: block;">
 		  </div>
@@ -231,48 +242,62 @@
         </article>
 		
 		<article class="card">
-          <div class="icon">BNZ</div>
-          <h3>BNZ Phantome</h3>
-          <p>Fantôme brain avec inserts pour chambres “stylo” et OSL, conçu pour les mesures locales et les protocoles comparatifs avancés.</p>
-          <span class="tag"><a href="#accueil">Consulter</a></span>
-        </article>
-		
-	    <article class="card">
-          <div class="icon">FHTP</div>
+          <div class="icon">PhantoRad BNZ</div>
 		  <div>
-		    <img src="img/FHTP.png" alt="Fantôme Homogène - Tête pédiatrique" style="width: 100%; height: 100%; object-fit: contain; margin-bottom: 15px; display: block;">
+		    <img src="img/BNZ.png" alt="Fantôme Homogène - Tête pédiatrique" style="width: 100%; height: 100%; object-fit: contain; margin-bottom: 15px; display: block;">
 		  </div>
-          <h3>Fantôme homogène de tête (deux modèles : pédiatrique 5 ans & néonatal)</h3>		  
-          <p>Fantôme Homogène cylindrique pour simuler la Tête pédiatrique pour imagerie et radiothérapie, avec une conception adaptée aux études anatomiques et dosimétriques.</p>
+          <h3>BNZ Phantome</h3>
+          <p>Fantôme brain avec inserts pour chambres d'ionisation et OSL, conçu pour les mesures locales et les protocoles comparatifs avancés.</p>
           <span class="tag"><a href="#accueil">Consulter</a></span>
         </article>
 		
 		<article class="card">
-          <div class="icon">FHTTP</div>
+          <div class="icon">PhantoRad Spine-X1</div>
+          <h3>PhantoRad Spine-X1</h3>
+          <p>Le PhantoRad Spine-X1 : La précision nanométrique au service de la neuro-radiologie.
+		  Le PhantoRad Spine-X1 est un fantôme anthropomorphique de haute précision conçu pour la validation des protocoles d'imagerie et de dosimétrie complexe de la zone cervicale.</p>
+          <span class="tag"><a href="#accueil">Consulter</a></span>
+        </article>
+		
+	    <article class="card">
+          <div class="icon">PhantoRad Head-Core</div>
+		  <div>
+		    <img src="img/Head_Core.png" alt="Fantôme Homogène - Tête pédiatrique" style="width: 100%; height: 100%; object-fit: contain; margin-bottom: 15px; display: block;">
+		  </div>
+          <h3>Fantôme homogène de tête (deux modèles : pédiatrique 5 ans & néonatal)</h3>		  
+          <p>Le PhantoRad Head-Core est un fantôme homogène cylindrique conçu spécifiquement pour simuler la tête en imagerie et en radiothérapie. 
+		  Ce modèle est un outil essentiel pour les études anatomiques et les mesures dosimétriques de référence.
+		  </p>
+          <span class="tag"><a href="#accueil">Consulter</a></span>
+        </article>
+		
+		<article class="card">
+          <div class="icon">PhantoRad Head-Mix</div>
 		   <div>
-		    <img src="img/FHTTP.jpeg" alt="Fantôme Homogène - Tête pédiatrique" style="width: 100%; height: 100%; object-fit: contain; margin-bottom: 15px; display: block;">
+		    <img src="img/Head_Mix.jpeg" alt="Fantôme Homogène - Tête pédiatrique" style="width: 100%; height: 100%; object-fit: contain; margin-bottom: 15px; display: block;">
 		  </div>
 		  <h3>Fantôme hétérogène de tête (deux modèles : pédiatrique 5 ans & néonatal)</h3>		  
-          <p>Fantôme Homogène cylindrique pour simuler la Tête pédiatrique pour imagerie et radiothérapie, avec une conception adaptée aux études anatomiques et dosimétriques.</p>
+          <p>Le PhantoRad Head-Mix est un fantôme hétérogène de pointe, conçu pour simuler la complexité radiologique de la tête humaine en imagerie et radiothérapie. 
+		  Sa structure cylindrique intègre des inserts de densités variées pour une précision anatomique et dosimétrique supérieure.</p>
           <span class="tag"><a href="#accueil">Consulter</a></span>
         </article>
         
         <article class="card">
-          <div class="icon">BNZG</div>
+          <div class="icon">PhantoRad BNZG</div>
           <h3>BNZ_GLADIATOR Phantome</h3>
           <p>Fantôme brain couvert en partie par l'os cranien avec des inserts pour OSL, conçu pour les mesures locales et les protocoles comparatifs avancés.</p>
           <span class="tag"><a href="#accueil">Consulter</a></span>
         </article>
 		
 		<article class="card">
-          <div class="icon">NC</div>
+          <div class="icon">PhantoRad NC</div>
           <h3>Neck Phantome</h3>
           <p>Fantôme du cou de l'adulte hybride  offrant un alignement QA parfait et une excellente répétabilité dans les procédures de vérification.</p>
           <span class="tag"><a href="#accueil">Consulter</a></span>
         </article>
 		
 		<article class="card">
-          <div class="icon">PC</div>
+          <div class="icon">PhantoRad PC</div>
           <h3>Pelvic Phantome</h3>
           <p>Fantôme hybride  offrant un alignement QA parfait et une excellente répétabilité dans les procédures de vérification.</p>
           <span class="tag"><a href="#accueil">Consulter</a></span>
