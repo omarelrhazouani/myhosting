@@ -5,6 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visualisateurs d’images DICOM</title>
     <style>
+	.brand-link {
+    position: absolute;
+    top: 15px;
+    left: 20px;
+     }
+
+     .brand-link a {
+    font-weight: bold;
+    font-style: italic;
+    font-size: 14px; /* pas très grand */
+    text-decoration: none;
+    color: var(--text); /* bleu pro (modifiable) */
+    opacity: 0.9;
+       }
+
+    .brand-link a:hover {
+    text-decoration: underline;
+    opacity: 1;
+     } 
+
         :root {
             --bg: #07111f;
             --card: rgba(255,255,255,0.08);
@@ -95,7 +115,11 @@
     </style>
 </head>
 <body>
+   
     <main class="container">
+	<div class="brand-link">
+       <a href="https://phantorad.com" target="_blank">Phantorad.com</a>
+    </div>
         <header>
             <h1>Visualisateurs d’images DICOM</h1>
             <div class="subtitle">Construits par les étudiants du Master Radioprotection (Temps Aménagé) promotion 2025/2027.</div>
