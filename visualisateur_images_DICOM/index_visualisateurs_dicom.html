@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualisateurs d’images DICOM</title>
+    <style>
+        :root {
+            --bg: #07111f;
+            --card: rgba(255,255,255,0.08);
+            --card-hover: rgba(59,130,246,0.22);
+            --border: rgba(255,255,255,0.14);
+            --text: #eef6ff;
+            --muted: #9fb3c8;
+            --accent: #38bdf8;
+            --accent2: #2563eb;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(56,189,248,.24), transparent 32%),
+                radial-gradient(circle at bottom right, rgba(37,99,235,.28), transparent 35%),
+                var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 36px 18px;
+        }
+        .container {
+            width: min(1100px, 100%);
+            background: rgba(2, 6, 23, 0.66);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 34px;
+            box-shadow: 0 24px 70px rgba(0,0,0,.35);
+            backdrop-filter: blur(12px);
+        }
+        header { text-align: center; margin-bottom: 28px; }
+        h1 {
+            margin: 0;
+            font-size: clamp(28px, 5vw, 48px);
+            letter-spacing: -0.04em;
+            background: linear-gradient(90deg, #fff, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            color: var(--muted);
+            margin-top: 10px;
+            font-size: 16px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 16px;
+        }
+        .viewer-btn {
+            text-decoration: none;
+            color: var(--text);
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px 20px;
+            min-height: 92px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 8px;
+            transition: transform .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease;
+        }
+        .viewer-btn:hover {
+            transform: translateY(-4px);
+            background: var(--card-hover);
+            border-color: var(--accent);
+            box-shadow: 0 12px 28px rgba(56,189,248,.18);
+        }
+        .viewer-btn span {
+            font-weight: 700;
+            font-size: 17px;
+        }
+        .viewer-btn small {
+            color: var(--muted);
+            font-size: 12px;
+        }
+        footer {
+            text-align: center;
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 24px;
+        }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <header>
+            <h1>Visualisateurs d’images DICOM</h1>
+            <div class="subtitle">Construits par les étudiants du Master Radioprotection (Temps Aménagé) promotion 2025/2027.</div>
+        </header>
+        <section class="grid">
+        <a class="viewer-btn" href="AABQARI_MOHAMED.html" target="_blank" rel="noopener">
+            <span>Aabqari Mohamed</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="abdelghani_saddiki.html" target="_blank" rel="noopener">
+            <span>Abdelghani Saddiki</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="Achraf_TIEMICHT.html" target="_blank" rel="noopener">
+            <span>Achraf Tiemicht</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="Adnane_EL_BAKKALI.html" target="_blank" rel="noopener">
+            <span>Adnane El Bakkali</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="Asmaa_Elbennouri.html" target="_blank" rel="noopener">
+            <span>Asmaa Elbennouri</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="Fatima_Zahra_ABOUKDE.html" target="_blank" rel="noopener">
+            <span>Fatima Zahra Aboukde</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="HAMZA_RAHIOUI.html" target="_blank" rel="noopener">
+            <span>Hamza Rahioui</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="khaoula%20banour_2.html" target="_blank" rel="noopener">
+            <span>Khaoula Banour 2</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="khaoula_banour_1.html" target="_blank" rel="noopener">
+            <span>Khaoula Banour 1</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="KNADAL_ABDELKHALEK.html" target="_blank" rel="noopener">
+            <span>Knadal Abdelkhalek</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="mostapha_bahi.html" target="_blank" rel="noopener">
+            <span>Mostapha Bahi</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="NABIL_KHOUAL.html" target="_blank" rel="noopener">
+            <span>Nabil Khoual</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="Oumaima_Mchourga.html" target="_blank" rel="noopener">
+            <span>Oumaima Mchourga</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="safa_kadiri.html" target="_blank" rel="noopener">
+            <span>Safa Kadiri</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="Youssef_BELHADDAD.html" target="_blank" rel="noopener">
+            <span>Youssef Belhaddad</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        <a class="viewer-btn" href="Zaynab_Boujlal.html" target="_blank" rel="noopener">
+            <span>Zaynab Boujlal</span>
+            <small>Ouvrir le visualisateur</small>
+        </a>
+        </section>
+        <footer>Ce travail est le livré de l'examen du module "Intelligence Artifitielle" en Mai 2026.</footer>
+    </main>
+</body>
+</html>

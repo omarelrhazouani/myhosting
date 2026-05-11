@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visualiseur DICOM</title>
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;--accent:#58a6ff;--danger:#f85149;--text:#e6edf3;--text2:#8b949e;--mono:'Courier New',monospace}
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
+body{font-family:'Segoe UI',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh;overflow:hidden}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+header h1{font-size:16px;font-weight:600}
+.badge{background:var(--accent);color:#000;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px}
+.main{display:flex;flex:1;overflow:hidden}
+.sidebar{width:250px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.panel{padding:14px;border-bottom:1px solid var(--border)}
+.panel-title{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text2);margin-bottom:10px}
+.upload-zone{border:2px dashed var(--border);border-radius:8px;padding:16px 10px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);background:rgba(88,166,255,.06)}
+.upload-zone .icon{font-size:26px;margin-bottom:6px}
+.upload-zone p{font-size:11px;color:var(--text2);line-height:1.6}
+#fileInput{display:none}
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text);transition:background .15s;margin-top:6px}
+.btn:hover{background:var(--border)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-danger{background:rgba(248,81,73,.12);color:var(--danger);border-color:rgba(248,81,73,.3)}
+.btn-danger:hover{background:rgba(248,81,73,.22)}
+.slider-row{margin-bottom:10px}
+.slider-row label{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:4px}
+.slider-row label b{color:var(--text);font-family:var(--mono);font-weight:normal}
+input[type=range]{-webkit-appearance:none;width:100%;height:3px;background:var(--border);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:var(--accent);border-radius:50%;cursor:pointer}
+input[type=range]:disabled{opacity:.35}
+.meta-row{display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;gap:8px}
+.meta-row .k{color:var(--text2);white-space:nowrap}
+.meta-row .v{font-family:var(--mono);text-align:right;word-break:break-all}
+.viewer-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}
+.tbtn{padding:6px 12px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;cursor:pointer;transition:background .15s;white-space:nowrap}
+.tbtn:hover{background:var(--border)}
+.tbtn.active{background:var(--accent);color:#000;border-color:var(--accent)}
+.sep{width:1px;height:20px;background:var(--border);margin:0 2px}
+.coords{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:5px 10px;min-width:170px;text-align:center}
+.canvas-wrap{flex:1;position:relative;overflow:hidden;background:#111}
+#dicomCanvas{display:block;position:absolute;top:0;left:0}
+.placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;pointer-events:none}
+.placeholder .big{font-size:48px;opacity:.2}
+.placeholder p{font-size:13px;color:var(--text2);opacity:.5}
+.statusbar{background:var(--surface);border-top:1px solid var(--border);padding:8px 14px;font-size:12px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:36px}
+.statusbar.ok{color:#3fb950}
+.statusbar.err{color:var(--danger)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:none;flex-shrink:0}
+.statusbar.load .spinner{display:block}
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:18px">🩻</span>
+  <h1>Visualiseur DICOM</h1>
+  <span class="badge">DICOM</span>
+</header>
+
+<div class="main">
+  <aside class="sidebar">
+    <div class="panel">
+      <div class="panel-title">Charger un fichier</div>
+      <div class="upload-zone" id="uploadZone">
+        <div class="icon">📂</div>
+        <p>Glissez un <strong>.dcm</strong> ici<br>ou cliquez pour parcourir</p>
+        <input type="file" id="fileInput" accept=".dcm,.DCM">
+      </div>
+      <button class="btn" id="sampleBtn">⬇️ Image de démonstration</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Fenêtrage</div>
+      <div class="slider-row">
+        <label>Largeur WW <b id="wwVal">—</b></label>
+        <input type="range" id="wwSlider" min="1" max="4000" value="400" disabled>
+      </div>
+      <div class="slider-row">
+        <label>Centre WC <b id="wcVal">—</b></label>
+        <input type="range" id="wcSlider" min="-2000" max="3000" value="40" disabled>
+      </div>
+      <div class="slider-row">
+        <label>Luminosité <b id="brightVal">—</b></label>
+        <input type="range" id="brightSlider" min="-200" max="200" value="0" disabled>
+      </div>
+      <button class="btn btn-danger" id="resetBtn" disabled>↺ Réinitialiser</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Informations DICOM</div>
+      <div class="meta-row"><span class="k">Fichier</span><span class="v" id="mFile">—</span></div>
+      <div class="meta-row"><span class="k">Dimensions</span><span class="v" id="mDims">—</span></div>
+      <div class="meta-row"><span class="k">Espacement</span><span class="v" id="mSpacing">—</span></div>
+      <div class="meta-row"><span class="k">Modalité</span><span class="v" id="mModality">—</span></div>
+      <div class="meta-row"><span class="k">Bits alloués</span><span class="v" id="mBits">—</span></div>
+      <div class="meta-row"><span class="k">Patient ID</span><span class="v" id="mPatient">—</span></div>
+      <div class="meta-row"><span class="k">Min / Max</span><span class="v" id="mMinMax">—</span></div>
+    </div>
+  </aside>
+
+  <div class="viewer-area">
+    <div class="toolbar">
+      <button class="tbtn active" id="toolMove">🖐 Pan</button>
+      <button class="tbtn" id="toolZoom">🔍 Zoom</button>
+      <button class="tbtn" id="toolWL">🎛 W/L</button>
+      <div class="sep"></div>
+      <button class="tbtn" id="btnZoomIn">＋</button>
+      <button class="tbtn" id="btnZoomOut">－</button>
+      <button class="tbtn" id="btnFit">⊡ Ajuster</button>
+      <div class="sep"></div>
+      <button class="tbtn" id="btnInvert">⬛ Inverser</button>
+      <button class="tbtn" id="btnRot">↻ 90°</button>
+      <div class="coords" id="coords">— (x, y) = —</div>
+    </div>
+
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="dicomCanvas"></canvas>
+      <div class="placeholder" id="placeholder">
+        <div class="big">🩻</div>
+        <p>Aucune image chargée</p>
+      </div>
+    </div>
+
+    <div class="statusbar" id="statusBar">
+      <div class="spinner" id="spinner"></div>
+      <span id="statusMsg">Chargez un fichier DICOM pour commencer.</span>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/dicom-parser@1.8.21/dist/dicomParser.min.js"></script>
+<script>
+'use strict';
+
+// ── State ──────────────────────────────────────────────────────────────────
+const S = {
+  raw:null, width:0, height:0,
+  ww:400, wc:40, brightness:0,
+  invert:false, rotation:0,
+  zoom:1, panX:0, panY:0,
+  tool:'move', drag:null
+};
+
+// ── DOM ────────────────────────────────────────────────────────────────────
+const canvas    = document.getElementById('dicomCanvas');
+const ctx       = canvas.getContext('2d');
+const wrap      = document.getElementById('canvasWrap');
+const ph        = document.getElementById('placeholder');
+const statusBar = document.getElementById('statusBar');
+const statusMsg = document.getElementById('statusMsg');
+
+function setStatus(msg, type) {
+  statusBar.className = 'statusbar ' + (type||'');
+  statusMsg.textContent = msg;
+}
+
+// ── DICOM parse ────────────────────────────────────────────────────────────
+function parseDicom(buf) {
+  const bytes = new Uint8Array(buf);
+  const ds = dicomParser.parseDicom(bytes);
+
+  const cols   = ds.uint16('x00280011') || 512;
+  const rows   = ds.uint16('x00280010') || 512;
+  const bits   = ds.uint16('x00280100') || 16;
+  const pixRep = ds.uint16('x00280103') || 0;
+  const slope  = parseFloat(ds.string('x00281053')||'1') || 1;
+  const inter  = parseFloat(ds.string('x00281052')||'0') || 0;
+
+  // W/L par défaut depuis le fichier, sinon valeurs CT standard
+  let ww = parseInt(ds.string('x00281051')||'0') || 0;
+  let wc = parseInt(ds.string('x00281050')||'0') || 0;
+
+  const pixEl = ds.elements.x7fe00010;
+  if (!pixEl) throw new Error('Pas de pixel data (7FE0,0010).');
+
+  const off = pixEl.dataOffset;
+  const len = cols * rows * (bits / 8);
+  let raw;
+
+  if (bits === 16) {
+    const sliced = buf.slice(off, off + len);
+    raw = pixRep === 1 ? new Int16Array(sliced) : new Uint16Array(sliced);
+  } else if (bits === 8) {
+    raw = new Uint8Array(buf, off, len);
+  } else {
+    throw new Error('Bits alloués non supportés : ' + bits);
+  }
+
+  // Rescale + calcul min/max
+  const rescaled = new Float32Array(raw.length);
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < raw.length; i++) {
+    const v = raw[i] * slope + inter;
+    rescaled[i] = v;
+    if (v < mn) mn = v;
+    if (v > mx) mx = v;
+  }
+
+  // Si pas de W/L dans le fichier, on calcule automatiquement
+  if (ww === 0) { ww = Math.round(mx - mn); wc = Math.round((mx + mn) / 2); }
+
+  return {
+    raw: rescaled, width: cols, height: rows, minPx: mn, maxPx: mx, ww, wc,
+    meta: {
+      bits,
+      modality: ds.string('x00080060') || 'N/A',
+      patient:  ds.string('x00100020') || 'Anonyme',
+      spacing:  ds.string('x00280030') || 'N/A',
+    }
+  };
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  if (!S.raw) return;
+  const W = S.width, H = S.height;
+  const lo = S.wc - S.ww / 2;
+  const br = S.brightness;
+
+  // Build ImageData
+  const id = ctx.createImageData(W, H);
+  const px = id.data;
+  for (let i = 0; i < S.raw.length; i++) {
+    let v = S.raw[i];
+    v = (v <= lo) ? 0 : (v >= lo + S.ww) ? 255 : ((v - lo) / S.ww) * 255;
+    v = Math.min(255, Math.max(0, v + br));
+    if (S.invert) v = 255 - v;
+    const b = i * 4;
+    px[b] = px[b+1] = px[b+2] = v; px[b+3] = 255;
+  }
+
+  const off = new OffscreenCanvas(W, H);
+  off.getContext('2d').putImageData(id, 0, 0);
+
+  const cw = canvas.width, ch = canvas.height;
+  ctx.clearRect(0, 0, cw, ch);
+  ctx.save();
+  ctx.translate(cw/2 + S.panX, ch/2 + S.panY);
+  ctx.rotate(S.rotation * Math.PI / 180);
+  ctx.scale(S.zoom, S.zoom);
+  ctx.imageSmoothingEnabled = S.zoom < 3;
+  ctx.drawImage(off, -W/2, -H/2, W, H);
+  ctx.restore();
+}
+
+// ── Resize / Fit ───────────────────────────────────────────────────────────
+function resizeCanvas() {
+  canvas.width  = wrap.clientWidth  || 600;
+  canvas.height = wrap.clientHeight || 500;
+  render();
+}
+new ResizeObserver(resizeCanvas).observe(wrap);
+
+function fitToWindow() {
+  if (!S.raw) return;
+  const sx = wrap.clientWidth  / S.width;
+  const sy = wrap.clientHeight / S.height;
+  S.zoom = Math.min(sx, sy) * 0.9;
+  S.panX = S.panY = 0;
+  render();
+}
+
+// ── Load buffer ────────────────────────────────────────────────────────────
+function loadBuffer(buf, name) {
+  setStatus('⏳ Décodage…', 'load');
+  // setTimeout pour laisser le navigateur afficher "Décodage" avant de bloquer
+  setTimeout(() => {
+    try {
+      const r = parseDicom(buf);
+      Object.assign(S, {
+        raw: r.raw, width: r.width, height: r.height,
+        ww: r.ww, wc: r.wc, brightness: 0,
+        invert: false, rotation: 0, panX: 0, panY: 0
+      });
+      ph.style.display = 'none';
+      resizeCanvas();
+      fitToWindow();
+      syncSliders();
+      unlockControls();
+      document.getElementById('mFile').textContent     = name;
+      document.getElementById('mDims').textContent     = r.width + ' × ' + r.height;
+      document.getElementById('mSpacing').textContent  = r.meta.spacing;
+      document.getElementById('mModality').textContent = r.meta.modality;
+      document.getElementById('mBits').textContent     = r.meta.bits;
+      document.getElementById('mPatient').textContent  = r.meta.patient;
+      document.getElementById('mMinMax').textContent   = Math.round(r.minPx) + ' / ' + Math.round(r.maxPx);
+      document.getElementById('btnInvert').classList.remove('active');
+      setStatus('✅ ' + name + '  —  ' + r.width + '×' + r.height + ' px', 'ok');
+    } catch(e) {
+      console.error(e);
+      setStatus('❌ Erreur : ' + e.message, 'err');
+    }
+  }, 30);
+}
+
+// ── Sliders ────────────────────────────────────────────────────────────────
+function syncSliders() {
+  document.getElementById('wwSlider').value = S.ww;
+  document.getElementById('wcSlider').value = S.wc;
+  document.getElementById('brightSlider').value = S.brightness;
+  document.getElementById('wwVal').textContent = Math.round(S.ww);
+  document.getElementById('wcVal').textContent = Math.round(S.wc);
+  document.getElementById('brightVal').textContent = Math.round(S.brightness);
+}
+function unlockControls() {
+  ['wwSlider','wcSlider','brightSlider'].forEach(id => document.getElementById(id).disabled = false);
+  document.getElementById('resetBtn').disabled = false;
+}
+document.getElementById('wwSlider').addEventListener('input', function() {
+  S.ww = +this.value; document.getElementById('wwVal').textContent = Math.round(S.ww); render();
+});
+document.getElementById('wcSlider').addEventListener('input', function() {
+  S.wc = +this.value; document.getElementById('wcVal').textContent = Math.round(S.wc); render();
+});
+document.getElementById('brightSlider').addEventListener('input', function() {
+  S.brightness = +this.value; document.getElementById('brightVal').textContent = Math.round(S.brightness); render();
+});
+
+// ── Upload ─────────────────────────────────────────────────────────────────
+const uploadZone = document.getElementById('uploadZone');
+const fileInput  = document.getElementById('fileInput');
+uploadZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  setStatus('⏳ Lecture…', 'load');
+  const fr = new FileReader();
+  fr.onload = ev => loadBuffer(ev.target.result, f.name);
+  fr.onerror = () => setStatus('❌ Impossible de lire le fichier.', 'err');
+  fr.readAsArrayBuffer(f);
+  fileInput.value = '';
+});
+uploadZone.addEventListener('dragover',  e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', ()  => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0]; if (!f) return;
+  const fr = new FileReader();
+  fr.onload = ev => loadBuffer(ev.target.result, f.name);
+  fr.readAsArrayBuffer(f);
+});
+
+// ── Sample ─────────────────────────────────────────────────────────────────
+const SAMPLES = [
+  { url:'https://orthanc.uclouvain.be/demo/instances/8059e7db-eb54fd99-3a35d08c-9fa54268-c34f5af6/file', name:'CT Démo (UCLouvain)' },
+  { url:'https://github.com/bebbi/dcmjs/raw/master/test/sample-dicom.dcm', name:'Sample (dcmjs)' },
+  { url:'https://github.com/darcymason/pydicom/raw/master/pydicom/data/test_files/CT_small.dcm', name:'CT_small (pydicom)' },
+];
+document.getElementById('sampleBtn').addEventListener('click', async () => {
+  setStatus('⏳ Téléchargement de la démo…', 'load');
+  for (const s of SAMPLES) {
+    try {
+      const res = await fetch(s.url, { mode:'cors' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const buf = await res.arrayBuffer();
+      loadBuffer(buf, s.name); return;
+    } catch(e) { console.warn('Source échouée :', s.url, e.message); }
+  }
+  setStatus('❌ Impossible de charger la démo. Chargez un .dcm local.', 'err');
+});
+
+// ── Toolbar boutons ────────────────────────────────────────────────────────
+function setTool(t) {
+  S.tool = t;
+  document.querySelectorAll('.tbtn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === t));
+  canvas.style.cursor = t==='move' ? 'grab' : t==='zoom' ? 'ns-resize' : 'col-resize';
+}
+document.getElementById('toolMove').dataset.tool = 'move';
+document.getElementById('toolZoom').dataset.tool = 'zoom';
+document.getElementById('toolWL').dataset.tool   = 'wl';
+document.getElementById('toolMove').addEventListener('click', () => setTool('move'));
+document.getElementById('toolZoom').addEventListener('click', () => setTool('zoom'));
+document.getElementById('toolWL').addEventListener('click',   () => setTool('wl'));
+
+document.getElementById('btnZoomIn').addEventListener('click',  () => { if(S.raw){S.zoom=Math.min(S.zoom*1.25,20);render();} });
+document.getElementById('btnZoomOut').addEventListener('click', () => { if(S.raw){S.zoom=Math.max(S.zoom/1.25,0.05);render();} });
+document.getElementById('btnFit').addEventListener('click', fitToWindow);
+document.getElementById('btnInvert').addEventListener('click', function() {
+  if(!S.raw)return; S.invert=!S.invert; this.classList.toggle('active',S.invert); render();
+});
+document.getElementById('btnRot').addEventListener('click', () => {
+  if(!S.raw)return; S.rotation=(S.rotation+90)%360; render();
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if(!S.raw)return;
+  S.invert=false; S.rotation=0; S.brightness=0;
+  document.getElementById('btnInvert').classList.remove('active');
+  fitToWindow(); syncSliders();
+});
+
+// ── Souris ─────────────────────────────────────────────────────────────────
+canvas.addEventListener('mousedown', e => {
+  if(!S.raw)return; e.preventDefault();
+  S.drag={x:e.clientX,y:e.clientY,panX:S.panX,panY:S.panY,ww:S.ww,wc:S.wc,zoom:S.zoom};
+  canvas.style.cursor='grabbing';
+});
+window.addEventListener('mousemove', e => {
+  if(!S.drag||!S.raw)return;
+  const dx=e.clientX-S.drag.x, dy=e.clientY-S.drag.y;
+  if(S.tool==='move')    { S.panX=S.drag.panX+dx; S.panY=S.drag.panY+dy; }
+  else if(S.tool==='zoom') { S.zoom=Math.min(Math.max(S.drag.zoom*Math.pow(1.01,-dy),0.05),20); }
+  else if(S.tool==='wl')  { S.ww=Math.max(1,S.drag.ww+dx*4); S.wc=S.drag.wc+dy*2; syncSliders(); }
+  render();
+});
+window.addEventListener('mouseup', () => {
+  if(!S.drag)return; S.drag=null;
+  canvas.style.cursor=S.tool==='move'?'grab':S.tool==='zoom'?'ns-resize':'col-resize';
+});
+canvas.addEventListener('wheel', e => {
+  if(!S.raw)return; e.preventDefault();
+  S.zoom=Math.min(Math.max(S.zoom*(e.deltaY<0?1.1:0.91),0.05),20); render();
+},{passive:false});
+
+// ── Coordonnées ─────────────────────────────────────────────────────────────
+canvas.addEventListener('mousemove', e => {
+  if(!S.raw)return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  const rad=-S.rotation*Math.PI/180;
+  const dx=(mx-canvas.width/2-S.panX)/S.zoom;
+  const dy=(my-canvas.height/2-S.panY)/S.zoom;
+  const ix=Math.floor(dx*Math.cos(rad)-dy*Math.sin(rad)+S.width/2);
+  const iy=Math.floor(dx*Math.sin(rad)+dy*Math.cos(rad)+S.height/2);
+  const el=document.getElementById('coords');
+  if(ix>=0&&ix<S.width&&iy>=0&&iy<S.height){
+    el.textContent='('+ix+', '+iy+')  =  '+Math.round(S.raw[iy*S.width+ix])+' UH';
+  } else { el.textContent='— (x, y) = —'; }
+});
+canvas.addEventListener('mouseleave',()=>{ document.getElementById('coords').textContent='— (x, y) = —'; });
+
+// ── Init ───────────────────────────────────────────────────────────────────
+setTool('move');
+resizeCanvas();
+</script>
+</body>
+</html>

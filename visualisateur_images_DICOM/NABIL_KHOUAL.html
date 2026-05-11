@@ -1,0 +1,2809 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NABIL MedVision — Clinical DICOM Viewer</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Cornerstone Ecosystem -->
+<script src="https://unpkg.com/dicom-parser/dist/dicomParser.min.js"></script>
+<script src="https://unpkg.com/cornerstone-core/dist/cornerstone.min.js"></script>
+<script src="https://unpkg.com/cornerstone-math/dist/cornerstoneMath.min.js"></script>
+<script src="https://unpkg.com/cornerstone-tools/dist/cornerstoneTools.min.js"></script>
+<script src="https://unpkg.com/cornerstone-wado-image-loader/dist/cornerstoneWADOImageLoader.bundle.min.js"></script>
+
+<style>
+/* ═══════════════════════════════════════════
+   DESIGN TOKENS — Obsidian Medical Dashboard
+═══════════════════════════════════════════ */
+:root {
+  /* Backgrounds */
+  --bg:        #0a0c12;
+  --bg2:       #0d0f18;
+  --bg3:       #060810;
+
+  /* Glass surfaces */
+  --glass:     rgba(255,255,255,.04);
+  --glass2:    rgba(255,255,255,.07);
+  --glass3:    rgba(255,255,255,.10);
+
+  /* Borders */
+  --border:    rgba(255,255,255,.08);
+  --border2:   rgba(255,255,255,.13);
+  --border3:   rgba(255,255,255,.20);
+
+  /* Accent — Gold + Cyan */
+  --gold:      #e2b86b;
+  --gold2:     #f0cc8a;
+  --gold-dim:  rgba(226,184,107,.15);
+  --cyan:      #2dd4bf;
+  --cyan2:     #5eead4;
+  --cyan-dim:  rgba(45,212,191,.12);
+
+  /* Text */
+  --text:      #f0f2f8;
+  --text-mid:  #b0b8d0;
+  --text-dim:  #6a728a;
+
+  /* Functional */
+  --green:     #4ade80;
+  --red:       #f87171;
+
+  /* Glow */
+  --glow-gold: 0 0 18px rgba(226,184,107,.25);
+  --glow-cyan: 0 0 16px rgba(45,212,191,.22);
+  --shadow:    0 8px 32px rgba(0,0,0,.6);
+
+  /* Shape */
+  --pill:  32px;
+  --r:     12px;
+  --r2:    16px;
+
+  /* Fonts */
+  --mono: 'JetBrains Mono', monospace;
+  --ui:   'Inter', sans-serif;
+}
+
+/* Light Mode */
+[data-mode="light"] {
+  --bg:        #f0f4fa;
+  --bg2:       #e8edf7;
+  --bg3:       #dde4f2;
+  --glass:     rgba(255,255,255,.70);
+  --glass2:    rgba(255,255,255,.85);
+  --glass3:    rgba(255,255,255,.95);
+  --border:    rgba(0,0,0,.09);
+  --border2:   rgba(0,0,0,.14);
+  --border3:   rgba(0,0,0,.22);
+  --text:      #0d1020;
+  --text-mid:  #2d3555;
+  --text-dim:  #5a6585;
+  --gold:      #b8852a;
+  --gold2:     #a07020;
+  --gold-dim:  rgba(184,133,42,.12);
+  --cyan:      #0d9488;
+  --cyan2:     #0f766e;
+  --cyan-dim:  rgba(13,148,136,.12);
+  --shadow:    0 6px 24px rgba(0,0,0,.10);
+  /* surface overrides */
+  --header-bg:   rgba(245, 248, 255, 0.96);
+  --toolbar-bg:  rgba(235, 240, 252, 0.92);
+  --toolbar2-bg: rgba(228, 234, 248, 0.95);
+  --panel-bg:    rgba(240, 244, 250, 0.90);
+  --brand-bg:    linear-gradient(135deg, rgba(184,133,42,.06), rgba(13,148,136,.04));
+  --card-bg:     rgba(255,255,255,.75);
+}
+
+/* Light mode: brand name gradient uses darker gold */
+[data-mode="light"] .brand-name {
+  background: linear-gradient(90deg, #b8852a 0%, #d4a640 40%, #0891b2 70%, #0d9488 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Light mode: header gradient line uses darker tones */
+[data-mode="light"] .header::after {
+  background: linear-gradient(90deg, transparent 0%, #b8852a 30%, #0d9488 70%, transparent 100%);
+  opacity: .4;
+}
+
+/* Light mode: skull logo box border */
+[data-mode="light"] .logo-mark rect:first-child { fill: #e8edf7; }
+
+/* Light mode: active tool blue stays readable */
+[data-mode="light"] .tbtn.active {
+  background: rgba(37, 99, 235, 0.85);
+  color: #ffffff;
+  border-color: rgba(59,130,246,.7);
+}
+
+/* Light mode: slider track */
+[data-mode="light"] input[type=range] {
+  background: linear-gradient(90deg, rgba(13,148,136,.3), rgba(13,148,136,.1));
+}
+
+/* Light mode: slider thumb border uses light bg */
+[data-mode="light"] input[type=range]::-webkit-slider-thumb {
+  border-color: #f0f4fa;
+}
+
+/* Light mode: cine speed slider */
+[data-mode="light"] .cine-speed input[type=range] {
+  background: rgba(13,148,136,.2);
+}
+
+/* Light mode: panel left bg */
+[data-mode="light"] .panel-left {
+  background: rgba(235, 240, 252, 0.85);
+}
+
+/* RTL */
+[dir="rtl"] .brand { border-right: none; border-left: 1px solid var(--border); }
+[dir="rtl"] .patient-bar .pbar-field { border-right: none; border-left: 1px solid var(--border); }
+[dir="rtl"] .panel-left { border-right: none; border-left: 1px solid var(--border); }
+[dir="rtl"] .panel-right { border-left: none; border-right: 1px solid var(--border); }
+[dir="rtl"] .pbar-field:first-child { padding-left: 18px; padding-right: 0; }
+[dir="rtl"] .pbar-field:last-child { border-left: none; }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--ui);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  transition: background .3s, color .3s;
+}
+
+/* ═══════════════════════════════════════════
+   APP GRID
+═══════════════════════════════════════════ */
+.app {
+  display: grid;
+  grid-template-rows: 68px auto auto 1fr;
+  grid-template-columns: 220px 1fr 260px;
+  height: 100vh;
+  background: var(--bg);
+}
+
+/* ═══════════════════════════════════════════
+   GLASSMORPHISM MIXIN (reused via class)
+═══════════════════════════════════════════ */
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid var(--border);
+}
+
+/* ═══════════════════════════════════════════
+   TRIPLE-LAYER HEADER SYSTEM
+═══════════════════════════════════════════ */
+/* Layer 1 — Primary Brand Header */
+.header {
+  grid-column: 1 / -1;
+  background: var(--header-bg, rgba(6, 8, 16, 0.96));
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  border-bottom: 1px solid var(--border2);
+  display: flex;
+  align-items: center;
+  position: relative;
+  z-index: 100;
+}
+.header::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--gold) 30%, var(--cyan) 70%, transparent 100%);
+  opacity: .5;
+}
+
+/* Logo / Brand */
+.brand {
+  display: flex; align-items: center; gap: 13px;
+  padding: 0 22px;
+  border-right: 1px solid var(--border);
+  min-width: 220px;
+  height: 100%;
+  flex-shrink: 0;
+  background: var(--brand-bg, linear-gradient(135deg, rgba(226,184,107,.04), rgba(45,212,191,.03)));
+}
+.logo-mark { width: 40px; height: 40px; flex-shrink: 0; }
+
+/* Gold-to-blue gradient brand name */
+.brand-text .brand-name {
+  font-family: var(--ui);
+  font-size: 15.5px;
+  font-weight: 800;
+  background: linear-gradient(90deg, var(--gold) 0%, #f0cc8a 40%, #7dd3fc 70%, var(--cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: .02em;
+  line-height: 1;
+}
+.brand-text .brand-name span { /* override gradient for inner span */ }
+.brand-pro {
+  font-size: 9px; font-weight: 800;
+  color: var(--cyan);
+  letter-spacing: .12em;
+  border: 1px solid rgba(45,212,191,.4);
+  border-radius: var(--pill);
+  padding: 1px 7px; margin-left: 6px;
+  text-transform: uppercase;
+  background: rgba(45,212,191,.08);
+}
+.brand-text .brand-sub {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--text-dim);
+  margin-top: 5px;
+  letter-spacing: .04em;
+}
+
+/* Patient bar */
+.patient-bar {
+  flex: 1;
+  display: flex; align-items: center;
+  height: 100%;
+  padding: 0 10px;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+.pbar-field {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 0 18px;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+.pbar-field:first-child { padding-left: 12px; }
+.pbar-field:last-child { border-right: none; }
+.pbar-label {
+  font-size: 9px; font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.pbar-value {
+  font-family: var(--mono);
+  font-size: 13px; font-weight: 600;
+  color: var(--gold);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 160px;
+}
+.pbar-value.empty { color: var(--text-dim); font-weight: 400; }
+
+/* Header controls */
+.header-controls {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 18px;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+/* Language switcher */
+.lang-switcher {
+  display: flex; gap: 2px;
+  background: var(--glass);
+  border: 1px solid var(--border2);
+  border-radius: var(--pill);
+  padding: 3px;
+  backdrop-filter: blur(10px);
+}
+.lang-btn {
+  padding: 3px 10px;
+  border-radius: var(--pill);
+  border: none;
+  background: transparent;
+  color: var(--text-mid);
+  font-family: var(--ui);
+  font-size: 10px; font-weight: 600;
+  cursor: pointer;
+  transition: all .18s;
+}
+.lang-btn:hover { color: var(--text); }
+.lang-btn.active {
+  background: var(--gold);
+  color: var(--bg);
+}
+
+/* Theme toggle */
+.theme-toggle {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 12px;
+  border-left: 1px solid var(--border);
+  height: 100%;
+}
+.mode-label {
+  font-size: 9px; font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.mode-switch {
+  width: 40px; height: 20px;
+  background: var(--border2);
+  border-radius: var(--pill); position: relative;
+  cursor: pointer; transition: background .2s;
+  flex-shrink: 0;
+}
+.mode-switch.light-mode { background: var(--cyan); }
+.mode-switch::after {
+  content: '';
+  position: absolute; top: 3px; left: 3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #fff;
+  transition: left .2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+.mode-switch.light-mode::after { left: 23px; }
+.mode-icon { font-size: 14px; }
+
+/* ═══════════════════════════════════════════
+   LAYER 2 — SECONDARY CLINICAL TOOLBAR
+═══════════════════════════════════════════ */
+.toolbar-secondary {
+  grid-column: 1 / -1;
+  background: var(--toolbar-bg, rgba(8, 10, 18, 0.85));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 16px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  box-shadow: 0 2px 12px rgba(0,0,0,.15);
+}
+.toolbar-secondary::-webkit-scrollbar { height: 2px; }
+.toolbar-secondary::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.tsec-label {
+  font-size: 9px; font-weight: 800;
+  color: rgba(226,184,107,.5);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  margin-right: 5px;
+  font-family: var(--ui);
+}
+.preset-btn {
+  padding: 5px 14px;
+  background: var(--glass);
+  border: 1px solid var(--border2);
+  border-radius: var(--pill);
+  color: var(--text-mid);
+  font-family: var(--ui); font-size: 10.5px; font-weight: 700;
+  cursor: pointer;
+  transition: all .18s;
+  flex-shrink: 0;
+  letter-spacing: .06em;
+  backdrop-filter: blur(8px);
+}
+.preset-btn:hover {
+  background: rgba(226,184,107,.1);
+  color: var(--gold);
+  border-color: rgba(226,184,107,.35);
+  box-shadow: var(--glow-gold);
+  transform: translateY(-1px);
+}
+.tsec-sep { width: 1px; height: 22px; background: rgba(255,255,255,.07); margin: 0 8px; flex-shrink: 0; }
+
+.cine-group { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.cine-label { font-size: 9px; font-weight: 800; color: rgba(45,212,191,.5); letter-spacing: .16em; text-transform: uppercase; margin-right: 3px; }
+.cine-btn {
+  width: 30px; height: 28px;
+  background: var(--glass);
+  border: 1px solid var(--border2);
+  border-radius: var(--pill);
+  color: var(--text-mid);
+  font-size: 10px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .18s;
+  backdrop-filter: blur(8px);
+}
+.cine-btn:hover, .cine-btn.active {
+  background: rgba(45,212,191,.12);
+  color: var(--cyan);
+  border-color: rgba(45,212,191,.4);
+  box-shadow: var(--glow-cyan);
+}
+.cine-speed {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 10px; color: var(--text-mid);
+}
+.cine-speed input[type=range] {
+  width: 64px; height: 3px; -webkit-appearance: none;
+  background: rgba(45,212,191,.15); border-radius: 3px; cursor: pointer;
+}
+.cine-speed input::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 12px; height: 12px;
+  border-radius: 50%; background: var(--cyan); cursor: pointer;
+  box-shadow: 0 0 8px rgba(45,212,191,.5);
+}
+.cine-fps { color: var(--cyan); min-width: 28px; font-family: var(--mono); font-size: 10px; font-weight: 700; }
+
+.export-group { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.export-btn {
+  padding: 5px 13px;
+  background: var(--glass);
+  border: 1px solid var(--border2);
+  border-radius: var(--pill);
+  color: var(--text-mid);
+  font-family: var(--ui); font-size: 10.5px; font-weight: 700;
+  cursor: pointer;
+  transition: all .18s;
+  display: flex; align-items: center; gap: 5px;
+  flex-shrink: 0;
+  letter-spacing: .04em;
+  backdrop-filter: blur(8px);
+}
+.export-btn:hover {
+  background: rgba(45,212,191,.10);
+  color: var(--cyan);
+  border-color: rgba(45,212,191,.35);
+  box-shadow: var(--glow-cyan);
+  transform: translateY(-1px);
+}
+
+/* ═══════════════════════════════════════════
+   LAYER 3 — ACTIVE DIAGNOSTIC TOOL BAR
+═══════════════════════════════════════════ */
+.toolbar-primary {
+  display: flex; align-items: center; gap: 3px;
+  padding: 5px 12px;
+  background: var(--toolbar2-bg, rgba(6, 8, 14, 0.90));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: nowrap; overflow-x: auto;
+  flex-shrink: 0;
+  min-height: 58px;
+}
+.toolbar-primary::-webkit-scrollbar { height: 8px; }
+.toolbar-primary::-webkit-scrollbar-thumb { background: rgba(45,212,191,.2); }
+
+.tool-group { display: flex; gap: 3px; align-items: center; }
+.tool-sep { width: 1px; height: 18px; background: rgba(255,255,255,.07); margin: 0 5px; flex-shrink: 0; }
+
+.tbtn {
+  min-width: 40px; height: 44px;
+  padding: 0 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border2);
+  background: var(--glass);
+  color: var(--text-mid);
+  cursor: pointer;
+  font-size: 13px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  transition: all .16s;
+  position: relative;
+  font-family: var(--ui); font-weight: 700;
+  flex-shrink: 0;
+  white-space: nowrap;
+  letter-spacing: .04em;
+  backdrop-filter: blur(8px);
+}
+.tbtn:hover {
+  background: rgba(45,212,191,.08);
+  color: var(--cyan2);
+  border-color: rgba(45,212,191,.3);
+  box-shadow: var(--glow-cyan);
+}
+/* Active tool: bright blue background highlight */
+.tbtn.active {
+  background: rgba(59,130,246,.75);
+  color: #ffffff;
+  border-color: rgba(96,165,250,.6);
+  box-shadow: 0 0 14px rgba(59,130,246,.4), 0 2px 8px rgba(0,0,0,.3);
+}
+.tbtn.active:hover {
+  background: rgba(59,130,246,.85);
+  box-shadow: 0 0 20px rgba(59,130,246,.5);
+}
+.tbtn:disabled { opacity: .18; cursor: not-allowed; box-shadow: none; }
+.tbtn .btn-icon { font-size: 13px; line-height: 1; }
+.tbtn .btn-label {
+  font-size: 7.5px; font-weight: 700;
+  color: var(--text-mid);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  line-height: 1;
+  font-family: var(--ui);
+}
+.tbtn:hover .btn-label { color: var(--cyan2); }
+.tbtn.active .btn-label { color: rgba(255,255,255,.85); }
+.tbtn:disabled .btn-label { opacity: .4; }
+.tbtn .tip {
+  display: none;
+  position: absolute; bottom: -28px; left: 50%; transform: translateX(-50%);
+  background: var(--glass3); border: 1px solid var(--border2);
+  color: var(--text); font-size: 9px; font-family: var(--mono);
+  padding: 3px 9px; border-radius: var(--pill); white-space: nowrap; z-index: 200;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+.tbtn:hover .tip { display: block; }
+.panel-left {
+  grid-row: 2 / -1;
+  background: var(--panel-bg, rgba(10,12,18,.6));
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.panel-title {
+  padding: 12px 16px;
+  font-family: var(--ui);
+  font-size: 10px; font-weight: 700;
+  color: var(--text-mid);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.panel-count {
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  color: var(--gold);
+  background: var(--gold-dim);
+  border: 1px solid rgba(226,184,107,.25);
+  border-radius: var(--pill);
+  padding: 1px 9px;
+}
+
+/* Drop zone */
+.drop-zone {
+  margin: 10px;
+  border: 1px dashed rgba(226,184,107,.25);
+  border-radius: var(--r);
+  padding: 18px 10px;
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+  transition: all .2s;
+  background: var(--glass);
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--gold);
+  background: var(--gold-dim);
+  box-shadow: var(--glow-gold);
+}
+.drop-zone input {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  width: 100%; height: 100%;
+}
+.dz-icon { font-size: 24px; margin-bottom: 7px; display: block; }
+.dz-text { font-size: 11px; color: var(--text-mid); line-height: 1.9; }
+.dz-text strong {
+  font-weight: 700; font-size: 12px;
+  color: var(--gold); display: block;
+  margin-bottom: 2px;
+}
+
+/* Series list */
+.series-header {
+  padding: 7px 16px;
+  font-size: 9px; font-weight: 700;
+  color: var(--text-mid); letter-spacing: .08em; text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  flex-shrink: 0;
+}
+.series-count {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--cyan);
+}
+
+.thumbnails {
+  flex: 1; overflow-y: auto; padding: 6px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.thumbnails::-webkit-scrollbar { width: 3px; }
+.thumbnails::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.thumb-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 9px;
+  border-radius: var(--r);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all .18s;
+  background: transparent;
+}
+.thumb-item:hover {
+  background: var(--glass2);
+  border-color: var(--border2);
+}
+.thumb-item.active {
+  background: var(--gold-dim);
+  border-color: rgba(226,184,107,.35);
+  box-shadow: var(--glow-gold);
+}
+.thumb-canvas {
+  width: 38px; height: 38px;
+  background: #000;
+  border: 1px solid var(--border2);
+  border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 7px; color: var(--text-dim);
+  overflow: hidden;
+}
+.thumb-canvas canvas { width: 100%; height: 100%; object-fit: cover; }
+.thumb-info { flex: 1; min-width: 0; }
+.thumb-name {
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.thumb-num { font-size: 9px; color: var(--text-mid); margin-top: 2px; }
+
+.series-empty {
+  padding: 28px 10px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-mid);
+  line-height: 2.4;
+  letter-spacing: .04em;
+}
+
+/* ═══════════════════════════════════════════
+   VIEWER (CENTER)
+═══════════════════════════════════════════ */
+.viewer {
+  grid-row: 2 / -1;
+  display: flex; flex-direction: column;
+  background: #000;
+  position: relative; overflow: hidden;
+}
+
+/* Primary Toolbar — see LAYER 3 block above */
+
+.zoom-display {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  color: var(--gold);
+  min-width: 42px; text-align: center;
+  padding: 0 4px;
+}
+
+/* Viewport */
+.viewport-wrapper {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+  background: #000;
+}
+#dicom-element {
+  width: 100%; height: 100%;
+  background: #000;
+  cursor: crosshair;
+  position: relative;
+}
+
+/* DICOM Overlays — floating monospace */
+.overlay {
+  position: absolute;
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  line-height: 2; padding: 12px; pointer-events: none; z-index: 5;
+  color: rgba(226,184,107,.75);
+  text-shadow: 0 1px 8px rgba(0,0,0,1);
+  transition: opacity .3s;
+}
+.ov-tl { top: 0; left: 0; }
+.ov-tr { top: 0; right: 0; text-align: right; }
+.ov-bl { bottom: 0; left: 0; }
+.ov-br { bottom: 0; right: 0; text-align: right; }
+.ov-val { color: var(--cyan); }
+.overlay.hidden { opacity: 0; }
+
+/* Empty state */
+.empty-state {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 18px;
+  pointer-events: none; transition: opacity .3s; z-index: 10;
+}
+.empty-state.hidden { opacity: 0; }
+.empty-ring {
+  width: 90px; height: 90px;
+  border: 1px solid rgba(226,184,107,.2);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; opacity: .4;
+  animation: pulse-ring 3.5s ease-in-out infinite;
+}
+@keyframes pulse-ring {
+  0%,100% { box-shadow: 0 0 0 0 rgba(226,184,107,.15); }
+  50%      { box-shadow: 0 0 0 18px rgba(226,184,107,0); }
+}
+.empty-title {
+  font-size: 10px; font-weight: 700;
+  color: var(--text-mid); letter-spacing: .16em; text-transform: uppercase;
+}
+.empty-sub { font-size: 11px; color: var(--text-mid); opacity: .6; }
+
+/* Progress bar */
+.progress-bar {
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--gold), var(--cyan));
+  transform: scaleX(0); transform-origin: left;
+  transition: transform .3s, opacity .3s;
+  z-index: 50;
+}
+.progress-bar.loading { transform: scaleX(.7); }
+.progress-bar.done    { transform: scaleX(1); opacity: 0; transition: transform .1s, opacity .25s .1s; }
+
+/* Slice counter */
+.slice-counter {
+  position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+  background: var(--glass2);
+  border: 1px solid var(--border2);
+  border-radius: var(--pill); padding: 4px 18px;
+  font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+  z-index: 10; pointer-events: none; display: none;
+  backdrop-filter: blur(12px);
+}
+.slice-counter em { color: var(--gold); font-style: normal; font-weight: 600; }
+
+/* Nav arrows */
+.nav-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 32px; height: 56px;
+  background: var(--glass);
+  border: 1px solid var(--border2);
+  color: var(--text-dim); cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 15; opacity: .35; transition: all .18s;
+  border-radius: var(--r);
+  backdrop-filter: blur(8px);
+}
+.nav-arrow:hover {
+  opacity: 1;
+  color: var(--gold);
+  border-color: rgba(226,184,107,.4);
+  box-shadow: var(--glow-gold);
+}
+.nav-arrow:disabled { opacity: .06; cursor: not-allowed; }
+.nav-prev { left: 0; border-radius: 0 var(--r) var(--r) 0; }
+.nav-next { right: 0; border-radius: var(--r) 0 0 var(--r); }
+
+/* Status bar */
+.status-bar {
+  padding: 5px 14px;
+  background: var(--glass2);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  display: flex; gap: 16px; align-items: center;
+  font-family: var(--mono); font-size: 10px; color: var(--text-mid);
+  flex-shrink: 0;
+}
+.stat { display: flex; gap: 5px; align-items: center; }
+.stat-v { color: var(--gold); font-weight: 600; }
+.stat-spacer { flex: 1; }
+.stat-tool {
+  padding: 2px 12px;
+  border: 1px solid rgba(45,212,191,.3);
+  border-radius: var(--pill);
+  color: var(--cyan); font-size: 9px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase;
+  background: var(--cyan-dim);
+}
+.stat-mouse { color: var(--text-dim); font-size: 9px; }
+
+/* ═══════════════════════════════════════════
+   RIGHT PANEL
+═══════════════════════════════════════════ */
+.panel-right {
+  grid-row: 2 / -1;
+  background: var(--panel-bg, rgba(8, 10, 18, 0.65));
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow-y: auto; overflow-x: hidden;
+}
+.panel-right::-webkit-scrollbar { width: 8px; }
+.panel-right::-webkit-scrollbar-track { background: rgba(255,255,255,.04); border-radius: 4px; }
+.panel-right::-webkit-scrollbar-thumb { background: linear-gradient(to bottom, var(--gold), var(--cyan)); border-radius: 4px; min-height: 40px; }
+.panel-right::-webkit-scrollbar-thumb:hover { background: var(--cyan); }
+
+/* Scroll progress indicator */
+.scroll-indicator {
+  position: sticky; top: 0; z-index: 10;
+  height: 2px; background: transparent;
+  margin: 0;
+}
+.scroll-indicator-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--cyan));
+  width: 0%; transition: width .1s;
+  border-radius: 0 2px 2px 0;
+}
+
+/* ── Right-panel sticky scroll toolbar (bottom, never overlaps content) ── */
+.panel-scroll-nav {
+  display: none;
+  position: sticky;
+  bottom: 0;
+  left: 0; right: 0;
+  z-index: 50;
+  /*display: flex;*/
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: rgba(8,10,18,.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-top: 1px solid var(--border2);
+  flex-shrink: 0;
+}
+.pscroll-btn {
+  width: 34px; height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border2);
+  background: var(--glass2);
+  color: var(--gold);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .18s;
+  font-family: var(--ui);
+  letter-spacing: .04em;
+}
+.pscroll-btn:hover {
+  background: var(--gold-dim);
+  border-color: rgba(226,184,107,.5);
+  box-shadow: var(--glow-gold);
+}
+.pscroll-btn:active { transform: scale(.93); }
+/* Jump-to-histogram shortcut */
+.pscroll-hist {
+  flex: 1;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(45,212,191,.3);
+  background: var(--cyan-dim);
+  color: var(--cyan);
+  font-size: 10px; font-weight: 700;
+  letter-spacing: .08em;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  transition: all .18s;
+  font-family: var(--ui);
+  text-transform: uppercase;
+}
+.pscroll-hist:hover {
+  background: rgba(45,212,191,.18);
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+.pscroll-hist:active { transform: scale(.97); }
+/* Dim arrows at scroll boundaries */
+.pscroll-btn.dim { opacity: 0.22; cursor: default; pointer-events: none; }
+
+/* Tool name labels under icons */
+.tbtn {
+  min-width: 40px; height: 44px;
+  padding: 0 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border2);
+  background: var(--glass);
+  color: var(--text-mid);
+  cursor: pointer;
+  font-size: 13px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  transition: all .16s;
+  position: relative;
+  font-family: var(--ui); font-weight: 700;
+  flex-shrink: 0;
+  white-space: nowrap;
+  letter-spacing: .04em;
+  backdrop-filter: blur(8px);
+}
+.tbtn .btn-icon { font-size: 13px; line-height: 1; }
+.tbtn .btn-label {
+  font-size: 7.5px; font-weight: 700;
+  color: var(--text-mid);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  line-height: 1;
+  font-family: var(--ui);
+}
+.tbtn:hover .btn-label { color: var(--cyan2); }
+.tbtn.active .btn-label { color: #fff; }
+.tbtn:disabled .btn-label { opacity: .4; }
+
+.panel-right > .panel-title {
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.panel-right > .panel-title::before {
+  content: '';
+  width: 3px; height: 16px;
+  background: linear-gradient(to bottom, var(--gold), var(--cyan));
+  border-radius: 2px; flex-shrink: 0;
+}
+
+/* ── Glassmorphism Info Cards (20 px radius) ── */
+.info-section {
+  margin: 5px 8px;
+  background: var(--glass);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  padding: 10px 12px;
+  transition: all .22s;
+  box-shadow: 0 3px 16px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.05);
+  position: relative;
+}
+.info-section::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(226,184,107,.18), transparent);
+  pointer-events: none;
+}
+.info-section:hover {
+  background: var(--glass2);
+  border-color: var(--border3);
+  box-shadow: 0 5px 24px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.info-section:last-child { margin-bottom: 10px; }
+
+.section-title {
+  font-size: 9px; font-weight: 800;
+  color: var(--gold);
+  letter-spacing: .20em; text-transform: uppercase;
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 7px;
+  font-family: var(--ui);
+}
+.section-title::before {
+  content: '';
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 8px var(--gold), 0 0 16px rgba(226,184,107,.4);
+  flex-shrink: 0;
+}
+.section-title::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(226,184,107,.35), transparent);
+}
+
+.info-row {
+  display: flex; justify-content: space-between;
+  align-items: baseline; margin-bottom: 3px;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--border);
+}
+.info-row:last-child { border-bottom: none; margin-bottom: 0; }
+.info-key {
+  font-size: 9.5px; font-weight: 600;
+  color: var(--text-mid);
+}
+.info-val {
+  font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+  color: var(--cyan);
+  text-align: right; max-width: 130px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Windowing sliders */
+.slider-group { margin-bottom: 9px; }
+.slider-group:last-child { margin-bottom: 0; }
+.slider-label {
+  font-size: 9px; font-weight: 600;
+  color: var(--text-mid);
+  display: flex; justify-content: space-between; margin-bottom: 5px;
+  letter-spacing: .04em;
+}
+.slider-label span {
+  font-family: var(--mono); font-size: 10.5px; font-weight: 700;
+  color: var(--cyan);
+  background: var(--cyan-dim);
+  padding: 0px 6px; border-radius: 5px;
+  border: 1px solid rgba(45,212,191,.22);
+}
+input[type=range] {
+  width: 100%; height: 4px;
+  -webkit-appearance: none; appearance: none;
+  background: linear-gradient(90deg, rgba(45,212,191,.25), rgba(45,212,191,.08));
+  border-radius: 4px;
+  outline: none; cursor: pointer;
+  border: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--cyan);
+  border: 2.5px solid var(--bg);
+  box-shadow: 0 0 0 2px rgba(45,212,191,.3), 0 0 12px rgba(45,212,191,.5);
+  cursor: pointer;
+  transition: transform .12s, box-shadow .12s;
+}
+input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 3px rgba(45,212,191,.4), 0 0 18px rgba(45,212,191,.6);
+}
+
+/* Toggles */
+.toggle-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px; padding: 2px 0;
+}
+.toggle-row:last-child { margin-bottom: 0; }
+.toggle-label { font-size: 10.5px; font-weight: 600; color: var(--text-mid); letter-spacing: .01em; }
+.toggle {
+  width: 36px; height: 20px;
+  background: var(--border2);
+  border-radius: var(--pill); position: relative; cursor: pointer;
+  transition: background .22s, box-shadow .22s; flex-shrink: 0;
+  border: 1px solid var(--border2);
+}
+.toggle.on {
+  background: rgba(45,212,191,.22);
+  border-color: rgba(45,212,191,.55);
+  box-shadow: 0 0 12px rgba(45,212,191,.25), inset 0 0 6px rgba(45,212,191,.10);
+}
+.toggle::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--text-dim);
+  transition: left .22s, background .22s, box-shadow .22s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+.toggle.on::after {
+  left: 19px;
+  background: var(--cyan);
+  box-shadow: 0 0 8px rgba(45,212,191,.7), 0 1px 3px rgba(0,0,0,.3);
+}
+
+/* Histogram — canvas based */
+.histogram-wrap { margin: 4px 0 2px; }
+.histogram-labels {
+  display: flex; justify-content: space-between;
+  font-family: var(--mono); font-size: 8px; font-weight: 600;
+  color: var(--text-mid);
+  padding: 0 2px; margin-bottom: 3px;
+}
+.histogram {
+  width: 100%; height: 80px;
+  border: 1px solid var(--border2); border-radius: var(--r);
+  overflow: hidden; display: block;
+  background: #0a0c14;
+}
+[data-mode="light"] .histogram { background: #1a1e2e; }
+.histogram canvas { width: 100%; height: 100%; display: block; }
+.histogram-axis {
+  display: flex; justify-content: space-between;
+  font-family: var(--mono); font-size: 7.5px;
+  color: var(--text-mid);
+  padding: 2px 2px 0; margin-top: 2px;
+}
+.hist-bar { display: none; }
+
+/* Measurements */
+.measurements-list {
+  max-height: 100px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 4px;
+  font-family: var(--mono); font-size: 11px;
+}
+.measurements-list::-webkit-scrollbar { width: 2px; }
+.meas-item {
+  display: flex; gap: 6px; align-items: center;
+  padding: 4px 10px;
+  color: var(--text-mid);
+  border-left: 2px solid var(--cyan);
+  background: var(--cyan-dim);
+  border-radius: 0 var(--r) var(--r) 0;
+}
+.meas-val { color: var(--cyan2); font-weight: 600; }
+
+/* ═══════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════ */
+.toast {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+  background: var(--glass3);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(226,184,107,.35);
+  color: var(--gold); font-family: var(--mono); font-size: 11px; font-weight: 500;
+  padding: 8px 24px; border-radius: var(--pill);
+  box-shadow: var(--glow-gold); opacity: 0;
+  transition: opacity .25s; pointer-events: none; z-index: 9999;
+  white-space: nowrap;
+}
+.toast.visible { opacity: 1; }
+
+@keyframes appear { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: scale(1); } }
+.appear { animation: appear .22s ease; }
+
+/* ═══════════════════════════════════════════
+   AI INTERPRET BUTTON & RESULT PANEL
+═══════════════════════════════════════════ */
+#interpret-btn {
+  width: 100%;
+  padding: 10px 16px;
+  margin-top: 6px;
+  background: linear-gradient(135deg, rgba(167,139,250,.15) 0%, rgba(45,212,191,.12) 100%);
+  border: 1px solid rgba(167,139,250,.35);
+  border-radius: var(--r);
+  color: #c4b5fd;
+  font-family: var(--ui); font-size: 12px; font-weight: 700;
+  letter-spacing: .06em;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: all .2s;
+  position: relative; overflow: hidden;
+}
+#interpret-btn::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(167,139,250,.25), rgba(45,212,191,.18));
+  opacity: 0; transition: opacity .2s;
+}
+#interpret-btn:hover::before { opacity: 1; }
+#interpret-btn:hover {
+  border-color: rgba(167,139,250,.6);
+  box-shadow: 0 0 18px rgba(167,139,250,.25), 0 0 8px rgba(45,212,191,.15);
+  transform: translateY(-1px);
+  color: #ddd6fe;
+}
+#interpret-btn:active { transform: translateY(0); }
+#interpret-btn:disabled {
+  opacity: .35; cursor: not-allowed; transform: none;
+}
+#interpret-btn .btn-spinner {
+  display: none;
+  width: 14px; height: 14px;
+  border: 2px solid rgba(196,181,253,.3);
+  border-top-color: #c4b5fd;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+#interpret-btn.loading .btn-spinner { display: block; }
+#interpret-btn.loading .btn-text { opacity: .6; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* AI result box */
+#ai-result {
+  margin-top: 10px;
+  display: none;
+  border-radius: var(--r);
+  border: 1px solid rgba(167,139,250,.25);
+  background: linear-gradient(160deg, rgba(167,139,250,.06) 0%, rgba(45,212,191,.04) 100%);
+  overflow: hidden;
+  animation: appear .3s ease;
+}
+#ai-result.visible { display: block; }
+.ai-result-header {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(167,139,250,.18);
+  background: rgba(167,139,250,.08);
+}
+.ai-result-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #a78bfa;
+  box-shadow: 0 0 8px rgba(167,139,250,.7);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 8px rgba(167,139,250,.7); }
+  50% { box-shadow: 0 0 16px rgba(167,139,250,1); }
+}
+.ai-result-label {
+  font-size: 9px; font-weight: 800;
+  color: #a78bfa; letter-spacing: .12em; text-transform: uppercase;
+  font-family: var(--ui);
+}
+.ai-result-tag {
+  margin-left: auto;
+  font-size: 8px; font-weight: 700;
+  color: var(--cyan); letter-spacing: .08em;
+  font-family: var(--mono);
+  background: rgba(45,212,191,.1);
+  border: 1px solid rgba(45,212,191,.25);
+  border-radius: var(--pill);
+  padding: 1px 7px;
+}
+.ai-result-body {
+  padding: 11px 13px;
+  font-family: var(--mono);
+  font-size: 11px; line-height: 1.8;
+  color: var(--text-mid);
+}
+.ai-result-body strong {
+  color: #c4b5fd; font-weight: 600;
+}
+.ai-result-error {
+  padding: 10px 13px;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--red);
+  display: flex; align-items: flex-start; gap: 7px;
+  line-height: 1.7;
+}
+
+/* Interpret button in toolbar */
+.tbtn.interpret-tbtn {
+  background: linear-gradient(135deg, rgba(167,139,250,.18) 0%, rgba(45,212,191,.12) 100%);
+  border-color: rgba(167,139,250,.4);
+  color: #c4b5fd;
+}
+.tbtn.interpret-tbtn:hover {
+  background: linear-gradient(135deg, rgba(167,139,250,.28) 0%, rgba(45,212,191,.2) 100%);
+  border-color: rgba(167,139,250,.65);
+  box-shadow: 0 0 16px rgba(167,139,250,.3);
+  color: #ddd6fe;
+}
+.tbtn.interpret-tbtn .btn-label { color: #a78bfa; }
+.tbtn.interpret-tbtn:hover .btn-label { color: #c4b5fd; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.65);
+  display: none; align-items: center; justify-content: center;
+  backdrop-filter: blur(8px);
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--glass3);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--border3);
+  border-radius: var(--r2);
+  padding: 26px;
+  min-width: 380px; max-width: 90vw;
+  box-shadow: var(--shadow);
+}
+.modal-title {
+  font-family: var(--ui); font-size: 16px; font-weight: 700;
+  color: var(--text); margin-bottom: 16px;
+}
+.modal-report {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text); line-height: 1.9;
+  background: var(--bg3); padding: 12px; border-radius: var(--r);
+  border: 1px solid var(--border); white-space: pre-wrap;
+  max-height: 320px; overflow-y: auto; margin-bottom: 16px;
+}
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-btn {
+  padding: 7px 20px;
+  background: var(--glass); border: 1px solid var(--border2);
+  color: var(--text-mid); font-family: var(--ui); font-size: 12px; font-weight: 600;
+  border-radius: var(--pill); cursor: pointer;
+  transition: all .18s; backdrop-filter: blur(8px);
+}
+.modal-btn:hover {
+  background: var(--glass2);
+  color: var(--text);
+  border-color: var(--border3);
+}
+.modal-btn.primary {
+  border-color: rgba(226,184,107,.4);
+  color: var(--gold);
+  background: var(--gold-dim);
+}
+.modal-btn.primary:hover {
+  box-shadow: var(--glow-gold);
+  background: rgba(226,184,107,.22);
+}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- ══ HEADER ══ -->
+  <header class="header">
+
+    <!-- Logo -->
+    <div class="brand">
+      <!-- Skull icon in gradient box -->
+      <svg class="logo-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="boxGrad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#e2b86b"/>
+            <stop offset="55%" stop-color="#a78bfa"/>
+            <stop offset="100%" stop-color="#2dd4bf"/>
+          </linearGradient>
+          <linearGradient id="skullGrad" x1="8" y1="6" x2="32" y2="34" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity=".95"/>
+            <stop offset="100%" stop-color="#e2b86b" stop-opacity=".85"/>
+          </linearGradient>
+          <filter id="sk-glow"><feGaussianBlur stdDeviation="1" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <!-- Gradient rounded box -->
+        <rect width="40" height="40" rx="10" fill="#060810"/>
+        <rect width="40" height="40" rx="10" fill="none" stroke="url(#boxGrad)" stroke-width="1.2"/>
+        <!-- Inner subtle gradient fill -->
+        <rect x="1" y="1" width="38" height="38" rx="9" fill="url(#boxGrad)" fill-opacity=".07"/>
+        <!-- Skull shape: cranium -->
+        <ellipse cx="20" cy="17" rx="10" ry="9.5" fill="url(#skullGrad)" filter="url(#sk-glow)"/>
+        <!-- Skull cheekbones / lower jaw -->
+        <path d="M13 23 Q12 29 15 30 L16.5 30 L16.5 27.5 L18.5 27.5 L18.5 30 L21.5 30 L21.5 27.5 L23.5 27.5 L23.5 30 L25 30 Q28 29 27 23 Z" fill="url(#skullGrad)"/>
+        <!-- Left eye socket -->
+        <ellipse cx="15.8" cy="17.5" rx="3.2" ry="3.5" fill="#060810"/>
+        <!-- Right eye socket -->
+        <ellipse cx="24.2" cy="17.5" rx="3.2" ry="3.5" fill="#060810"/>
+        <!-- Nose aperture -->
+        <path d="M19 21 L20 22.5 L21 21 Z" fill="#060810"/>
+        <!-- Cyan dot glow in eyes -->
+        <circle cx="15.8" cy="17.5" r="1.2" fill="#2dd4bf" opacity=".7"/>
+        <circle cx="24.2" cy="17.5" r="1.2" fill="#2dd4bf" opacity=".7"/>
+      </svg>
+
+      <div class="brand-text">
+        <div class="brand-name">NABIL MedVision</div>
+        <div class="brand-sub" data-i18n="brand_sub">Clinical DICOM Viewer</div>
+      </div>
+    </div>
+
+    <!-- Patient bar -->
+    <div class="patient-bar">
+      <div class="pbar-field">
+        <div class="pbar-label" data-i18n="patient">Patient</div>
+        <div class="pbar-value empty" id="pbPatient" data-i18n-empty="no_study">No study loaded</div>
+      </div>
+      <div class="pbar-field">
+        <div class="pbar-label" data-i18n="study_date">Study Date</div>
+        <div class="pbar-value empty" id="pbDate">—</div>
+      </div>
+      <div class="pbar-field">
+        <div class="pbar-label" data-i18n="modality">Modality</div>
+        <div class="pbar-value empty" id="pbModality">—</div>
+      </div>
+      <div class="pbar-field">
+        <div class="pbar-label" data-i18n="series">Series</div>
+        <div class="pbar-value empty" id="pbDesc" data-i18n-empty="import_hint">Import DICOM series to begin</div>
+      </div>
+    </div>
+
+    <!-- Controls: Language + Mode -->
+    <div class="header-controls">
+
+      <!-- Language switcher -->
+      <div class="lang-switcher">
+        <button class="lang-btn active" data-lang="en">EN</button>
+        <button class="lang-btn" data-lang="fr">FR</button>
+        <button class="lang-btn" data-lang="ar">AR</button>
+      </div>
+
+      <!-- Dark/Light toggle -->
+      <div class="theme-toggle">
+        <span class="mode-icon" id="modeIcon">🌙</span>
+        <div class="mode-switch" id="modeSwitch" title="Toggle dark/light mode"></div>
+        <span class="mode-label" id="modeLabel">DARK</span>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ══ SECONDARY TOOLBAR — Layer 2: Clinical Presets & CINE ══ -->
+  <div class="toolbar-secondary">
+    <div class="tsec-label" data-i18n="wl_presets">W/L Presets</div>
+    <button class="preset-btn" data-ww="1500" data-wl="-600" data-i18n="lung">LUNG</button>
+    <button class="preset-btn" data-ww="2500" data-wl="480"  data-i18n="bone">BONE</button>
+    <button class="preset-btn" data-ww="80"   data-wl="40"   data-i18n="brain">BRAIN</button>
+    <button class="preset-btn" data-ww="400"  data-wl="40"   data-i18n="soft_tissue">SOFT TISSUE</button>
+    <button class="preset-btn" data-ww="350"  data-wl="40"   data-i18n="abdomen">ABDOMEN</button>
+    <button class="preset-btn" data-ww="2000" data-wl="-500" data-i18n="mediastinum">MEDIASTINUM</button>
+    <button class="preset-btn" data-ww="100"  data-wl="50"   data-i18n="stroke">STROKE</button>
+
+    <div class="tsec-sep"></div>
+
+    <div class="cine-group">
+      <div class="cine-label" data-i18n="cine">CINE</div>
+      <button class="cine-btn" id="cinePrev" title="Previous">◀</button>
+      <button class="cine-btn" id="cinePlay" title="Play">▶</button>
+      <button class="cine-btn" id="cineNext" title="Next">▶▶</button>
+      <button class="cine-btn" id="cineStop" title="Stop">■</button>
+      <div class="cine-speed">
+        <input type="range" id="cineSpeed" min="1" max="30" value="8">
+        <span class="cine-fps" id="cineFps">8 fps</span>
+      </div>
+    </div>
+
+    <div class="tsec-sep"></div>
+
+    <div class="export-group">
+      <button class="export-btn" id="btnExportPng">
+        <span>⬇</span> <span data-i18n="export_png">Export PNG</span>
+      </button>
+      <button class="export-btn" id="btnExportReport">
+        <span>📄</span> <span data-i18n="export_report">Export Report</span>
+      </button>
+      <button class="export-btn" id="btnClearAll">
+        <span>✕</span> <span data-i18n="clear_all">Clear All</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ LEFT PANEL ══ -->
+  <aside class="panel-left">
+    <div class="panel-title">
+      <span data-i18n="study_manager">Study Manager</span>
+      <span class="panel-count" id="seriesCount">0</span>
+    </div>
+
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".dcm,.dicom,application/dicom" multiple>
+      <span class="dz-icon">📂</span>
+      <div class="dz-text">
+        <strong data-i18n="drop_files">DROP DICOM FILES HERE</strong>
+        <span data-i18n="or_browse">or click to browse</span>
+      </div>
+    </div>
+
+    <div class="series-header">
+      <span data-i18n="series_stack">Series Stack</span>
+      <span class="series-count" id="seriesCountSub">0 images</span>
+    </div>
+
+    <div class="thumbnails" id="thumbnailsList">
+      <div class="series-empty" data-i18n="no_study_empty">NO STUDY LOADED<br>Import DICOM series to begin</div>
+    </div>
+  </aside>
+
+  <!-- ══ CENTER VIEWER ══ -->
+  <main class="viewer">
+    <div class="progress-bar" id="progressBar"></div>
+
+    <!-- Primary Toolbar -->
+    <div class="toolbar-primary">
+      <div class="tool-group">
+        <button class="tbtn" id="btnZoomOut"><span class="btn-icon">−</span><span class="btn-label">Out</span><div class="tip" data-i18n="zoom_out">Zoom Out</div></button>
+        <div class="zoom-display" id="zoomDisplay">100%</div>
+        <button class="tbtn" id="btnZoomIn"><span class="btn-icon">+</span><span class="btn-label">In</span><div class="tip" data-i18n="zoom_in">Zoom In</div></button>
+        <button class="tbtn" id="btnFit"><span class="btn-icon">⊡</span><span class="btn-label">Fit</span><div class="tip" data-i18n="fit">Fit Screen</div></button>
+        <button class="tbtn" id="btnReset"><span class="btn-icon">⌂</span><span class="btn-label">Reset</span><div class="tip" data-i18n="reset">Reset View</div></button>
+      </div>
+
+      <div class="tool-sep"></div>
+
+      <div class="tool-group">
+        <button class="tbtn active" id="toolPan" data-tool="Pan"><span class="btn-icon">✥</span><span class="btn-label">Pan</span><div class="tip">Pan [P]</div></button>
+        <button class="tbtn" id="toolWL" data-tool="Wwwc"><span class="btn-icon">◈</span><span class="btn-label">W/L</span><div class="tip">Window/Level [W]</div></button>
+        <button class="tbtn" id="toolZoom" data-tool="Zoom"><span class="btn-icon">🔍</span><span class="btn-label">Zoom</span><div class="tip">Zoom Tool [Z]</div></button>
+        <button class="tbtn" id="toolLength" data-tool="Length"><span class="btn-icon">⊹</span><span class="btn-label">Length</span><div class="tip">Length [L]</div></button>
+        <button class="tbtn" id="toolAngle" data-tool="Angle"><span class="btn-icon">∠</span><span class="btn-label">Angle</span><div class="tip">Angle [A]</div></button>
+        <button class="tbtn" id="toolROI" data-tool="EllipticalRoi"><span class="btn-icon">⊙</span><span class="btn-label">ROI</span><div class="tip">ROI [R]</div></button>
+      </div>
+
+      <div class="tool-sep"></div>
+
+      <div class="tool-group">
+        <button class="tbtn" id="btnRotL"><span class="btn-icon">↺</span><span class="btn-label">Rot L</span><div class="tip" data-i18n="rot_l">Rotate Left</div></button>
+        <button class="tbtn" id="btnRotR"><span class="btn-icon">↻</span><span class="btn-label">Rot R</span><div class="tip" data-i18n="rot_r">Rotate Right</div></button>
+        <button class="tbtn" id="btnFlipH"><span class="btn-icon">⇔</span><span class="btn-label">Flip H</span><div class="tip" data-i18n="flip_h">Flip Horizontal</div></button>
+        <button class="tbtn" id="btnFlipV"><span class="btn-icon">⇕</span><span class="btn-label">Flip V</span><div class="tip" data-i18n="flip_v">Flip Vertical</div></button>
+      </div>
+
+      <div class="tool-sep"></div>
+
+      <div class="tool-group">
+        <button class="tbtn" id="btnInvert"><span class="btn-icon">◑</span><span class="btn-label">Invert</span><div class="tip" data-i18n="invert">Invert LUT [I]</div></button>
+        <button class="tbtn" id="btnFullscreen"><span class="btn-icon">⛶</span><span class="btn-label">Full</span><div class="tip" data-i18n="fullscreen">Fullscreen [F]</div></button>
+        <button class="tbtn" id="btnClearMeas"><span class="btn-icon">🗑</span><span class="btn-label">Clear</span><div class="tip" data-i18n="clear_meas">Clear Measurements</div></button>
+      </div>
+
+      <div class="tool-sep"></div>
+
+      <div class="tool-group">
+        <button class="tbtn" id="btnPrev" disabled><span class="btn-icon">‹</span><span class="btn-label">Prev</span><div class="tip">Previous [←]</div></button>
+        <button class="tbtn" id="btnNext" disabled><span class="btn-icon">›</span><span class="btn-label">Next</span><div class="tip">Next [→]</div></button>
+      </div>
+
+      <div class="tool-sep"></div>
+
+      <div class="tool-group">
+        <button class="tbtn interpret-tbtn" id="interpret-btn-toolbar">
+          <span class="btn-icon">🧠</span>
+          <span class="btn-label">AI Interpret</span>
+          <div class="tip">AI Interpretation [Ctrl+I]</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Viewport -->
+    <div class="viewport-wrapper" id="viewportWrapper">
+      <div id="dicom-element" oncontextmenu="return false;">
+        <div class="overlay ov-tl" id="ovTL"></div>
+        <div class="overlay ov-tr" id="ovTR"></div>
+        <div class="overlay ov-bl" id="ovBL"></div>
+        <div class="overlay ov-br" id="ovBR"></div>
+      </div>
+
+      <div class="empty-state" id="emptyState">
+        <div class="empty-ring">🩻</div>
+        <div class="empty-title" data-i18n="no_study_title">No study loaded</div>
+        <div class="empty-sub" data-i18n="import_hint">Import DICOM series to begin</div>
+      </div>
+
+      <button class="nav-arrow nav-prev" id="navPrev" disabled>‹</button>
+      <button class="nav-arrow nav-next" id="navNext" disabled>›</button>
+
+      <div class="slice-counter" id="sliceCounter">
+        <span data-i18n="slice">Slice</span> <em id="sliceCurrent">1</em> / <em id="sliceTotal">1</em>
+      </div>
+    </div>
+
+    <!-- Status bar -->
+    <div class="status-bar">
+      <div class="stat"><span data-i18n="pos">POS</span> <span class="stat-v" id="statPos">—</span></div>
+      <div class="stat">HU <span class="stat-v" id="statHU">—</span></div>
+      <div class="stat">WW <span class="stat-v" id="statWW">—</span></div>
+      <div class="stat">WL <span class="stat-v" id="statWL">—</span></div>
+      <div class="stat"><span data-i18n="zoom">ZOOM</span> <span class="stat-v" id="statZoom">—</span></div>
+      <div class="stat-spacer"></div>
+      <div class="stat-mouse" data-i18n="mouse_hint">Right-drag: W/L | Scroll: Slice | Ctrl+Wheel: Zoom</div>
+      <div class="stat-tool" id="statTool">PAN</div>
+    </div>
+  </main>
+
+  <!-- ══ RIGHT PANEL ══ -->
+  <aside class="panel-right" id="panelRight">
+    <div class="scroll-indicator"><div class="scroll-indicator-bar" id="scrollBar"></div></div>
+    <div class="panel-title"><span data-i18n="study_info">Study Information</span></div>
+
+    <div class="info-section">
+      <div class="section-title" data-i18n="patient_section">Patient</div>
+      <div class="info-row"><span class="info-key" data-i18n="name">Name</span><span class="info-val" id="iName">—</span></div>
+      <div class="info-row"><span class="info-key" data-i18n="patient_id">Patient ID</span><span class="info-val" id="iPatID">—</span></div>
+      <div class="info-row"><span class="info-key" data-i18n="birth">Birth Date</span><span class="info-val" id="iBirth">—</span></div>
+      <div class="info-row"><span class="info-key" data-i18n="sex">Sex</span><span class="info-val" id="iSex">—</span></div>
+    </div>
+
+    <div class="info-section">
+      <div class="section-title" data-i18n="study_section">Study</div>
+      <div class="info-row"><span class="info-key" data-i18n="modality">Modality</span><span class="info-val" id="iMod">—</span></div>
+      <div class="info-row"><span class="info-key" data-i18n="study_date">Study Date</span><span class="info-val" id="iDate">—</span></div>
+      <div class="info-row"><span class="info-key" data-i18n="description">Description</span><span class="info-val" id="iDesc">—</span></div>
+      <div class="info-row"><span class="info-key" data-i18n="institution">Institution</span><span class="info-val" id="iInst">—</span></div>
+    </div>
+
+    <div class="info-section">
+      <div class="section-title" data-i18n="image_section">Image</div>
+      <div class="info-row"><span class="info-key" data-i18n="dimensions">Dimensions</span><span class="info-val" id="iDims">—</span></div>
+      <div class="info-row"><span class="info-key" data-i18n="px_spacing">Pixel Spacing</span><span class="info-val" id="iSpacing">—</span></div>
+      <div class="info-row"><span class="info-key" data-i18n="slice_thick">Slice Thickness</span><span class="info-val" id="iThick">—</span></div>
+      <div class="info-row"><span class="info-key" data-i18n="bit_depth">Bit Depth</span><span class="info-val" id="iBits">—</span></div>
+      <div class="info-row"><span class="info-key" data-i18n="instance">Instance #</span><span class="info-val" id="iInstance">—</span></div>
+    </div>
+
+    <div class="info-section">
+      <div class="section-title" data-i18n="display">Display</div>
+      <div class="toggle-row">
+        <span class="toggle-label" data-i18n="invert_lut">Invert LUT</span>
+        <div class="toggle" id="toggleInvert"></div>
+      </div>
+    </div>
+
+    <div class="info-section">
+      <div class="section-title" data-i18n="histogram">Histogram</div>
+      <div class="histogram-wrap">
+        <div class="histogram-labels">
+          <span>DARK</span><span>PIXEL FREQ</span><span>BRIGHT</span>
+        </div>
+        <div class="histogram" id="histogram">
+          <canvas id="histCanvas"></canvas>
+        </div>
+        <div class="histogram-axis">
+          <span>0</span><span>— HU —</span><span>4096</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-section" id="measSection" style="display:none;">
+      <div class="section-title" data-i18n="measurements">Measurements</div>
+      <div class="measurements-list" id="measList"></div>
+    </div>
+
+    <!-- ══ AI INTERPRETATION SECTION ══ -->
+    <div class="info-section" id="interpretSection">
+      <div class="section-title">
+        <span>AI Interpretation</span>
+        <span style="font-size:8px;font-weight:600;color:var(--text-dim);letter-spacing:.06em;font-family:var(--mono);">BETA</span>
+      </div>
+      <p style="font-size:10px;color:var(--text-dim);line-height:1.7;margin-bottom:8px;font-family:var(--mono);">
+        Analyse les pixels normalisés avec WW/WL et envoie au moteur d'IA.
+      </p>
+      <button id="interpret-btn">
+        <span class="btn-spinner"></span>
+        <span class="btn-text">🧠 Interpréter l'image</span>
+      </button>
+      <div id="ai-result"></div>
+    </div>
+
+    <!-- Sticky scroll toolbar -->
+    <div class="panel-scroll-nav" id="panelScrollNav">
+      <button class="pscroll-btn dim" id="pScrollUp"   title="Scroll Up">▲</button>
+      <button class="pscroll-hist"    id="pScrollHist" title="Jump to Histogram">≋ Histogram</button>
+      <button class="pscroll-btn"     id="pScrollDown" title="Scroll Down">▼</button>
+    </div>
+
+  </aside>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Report Modal -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal-box">
+    <div class="modal-title" data-i18n="report_title">Radiology Report Export</div>
+    <pre class="modal-report" id="reportContent"></pre>
+    <div class="modal-actions">
+      <button class="modal-btn" id="modalCopy" data-i18n="copy_clipboard">Copy to Clipboard</button>
+      <button class="modal-btn primary" id="modalClose" data-i18n="close">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   i18n TRANSLATIONS
+══════════════════════════════════════════ */
+const TRANSLATIONS = {
+  en: {
+    brand_sub: 'Clinical DICOM Viewer',
+    patient: 'Patient', study_date: 'Study Date', modality: 'Modality', series: 'Series',
+    no_study: 'No study loaded', import_hint: 'Import DICOM series to begin',
+    study_manager: 'Study Manager', drop_files: 'DROP DICOM FILES HERE', or_browse: 'or click to browse',
+    series_stack: 'Series Stack', no_study_title: 'No study loaded',
+    no_study_empty: 'NO STUDY LOADED\nImport DICOM series to begin',
+    wl_presets: 'W/L Presets', lung: 'LUNG', bone: 'BONE', brain: 'BRAIN',
+    soft_tissue: 'SOFT TISSUE', abdomen: 'ABDOMEN', mediastinum: 'MEDIASTINUM', stroke: 'STROKE',
+    cine: 'CINE', export_png: 'Export PNG', export_report: 'Export Report', clear_all: 'Clear All',
+    zoom_out: 'Zoom Out', zoom_in: 'Zoom In', fit: 'Fit Screen', reset: 'Reset View',
+    rot_l: 'Rotate Left', rot_r: 'Rotate Right', flip_h: 'Flip H', flip_v: 'Flip V',
+    invert: 'Invert LUT [I]', fullscreen: 'Fullscreen [F]', clear_meas: 'Clear Measurements',
+    pos: 'POS', zoom: 'ZOOM', slice: 'Slice',
+    mouse_hint: 'Right-drag: W/L | Scroll: Slice | Ctrl+Wheel: Zoom',
+    study_info: 'Study Information', patient_section: 'Patient', study_section: 'Study',
+    image_section: 'Image', name: 'Name', patient_id: 'Patient ID', birth: 'Birth Date',
+    sex: 'Sex', description: 'Description', institution: 'Institution',
+    dimensions: 'Dimensions', px_spacing: 'Pixel Spacing', slice_thick: 'Slice Thickness',
+    bit_depth: 'Bit Depth', instance: 'Instance #',
+    windowing: 'Windowing', window_width: 'Window Width', window_level: 'Window Level',
+    display: 'Display', invert_lut: 'Invert LUT', overlays: 'Overlays', interpolation: 'Interpolation',
+    histogram: 'Histogram', measurements: 'Measurements',
+    report_title: 'Radiology Report Export', copy_clipboard: 'Copy to Clipboard', close: 'Close',
+    dark_mode: 'DARK', light_mode: 'LIGHT',
+  },
+  fr: {
+    brand_sub: 'Visionneuse DICOM Clinique',
+    patient: 'Patient', study_date: 'Date Étude', modality: 'Modalité', series: 'Série',
+    no_study: 'Aucune étude chargée', import_hint: 'Importer une série DICOM',
+    study_manager: 'Gestionnaire', drop_files: 'DÉPOSER LES FICHIERS DICOM ICI', or_browse: 'ou cliquer pour parcourir',
+    series_stack: 'Pile de Séries', no_study_title: 'Aucune étude chargée',
+    no_study_empty: 'AUCUNE ÉTUDE\nImporter une série DICOM pour commencer',
+    wl_presets: 'Préréglages F/N', lung: 'POUMON', bone: 'OS', brain: 'CERVEAU',
+    soft_tissue: 'TISSUS MOUS', abdomen: 'ABDOMEN', mediastinum: 'MÉDIASTIN', stroke: 'AVC',
+    cine: 'CINÉ', export_png: 'Exporter PNG', export_report: 'Exporter Rapport', clear_all: 'Tout Effacer',
+    zoom_out: 'Zoom Arrière', zoom_in: 'Zoom Avant', fit: 'Ajuster', reset: 'Réinitialiser',
+    rot_l: 'Rotation Gauche', rot_r: 'Rotation Droite', flip_h: 'Miroir H', flip_v: 'Miroir V',
+    invert: 'Inverser LUT [I]', fullscreen: 'Plein Écran [F]', clear_meas: 'Effacer Mesures',
+    pos: 'POS', zoom: 'ZOOM', slice: 'Coupe',
+    mouse_hint: 'Clic droit: F/N | Défilement: Coupe | Ctrl+Roue: Zoom',
+    study_info: "Informations de l'Étude", patient_section: 'Patient', study_section: 'Étude',
+    image_section: 'Image', name: 'Nom', patient_id: 'ID Patient', birth: 'Date Naissance',
+    sex: 'Sexe', description: 'Description', institution: 'Institution',
+    dimensions: 'Dimensions', px_spacing: 'Espacement Pixel', slice_thick: 'Épaisseur Coupe',
+    bit_depth: 'Profondeur Bits', instance: 'Instance N°',
+    windowing: 'Fenêtrage', window_width: 'Largeur Fenêtre', window_level: 'Niveau Fenêtre',
+    display: 'Affichage', invert_lut: 'Inverser LUT', overlays: 'Superpositions', interpolation: 'Interpolation',
+    histogram: 'Histogramme', measurements: 'Mesures',
+    report_title: 'Exporter Rapport Radiologique', copy_clipboard: 'Copier', close: 'Fermer',
+    dark_mode: 'SOMBRE', light_mode: 'CLAIR',
+  },
+  ar: {
+    brand_sub: 'عارض DICOM السريري',
+    patient: 'المريض', study_date: 'تاريخ الدراسة', modality: 'الطريقة', series: 'السلسلة',
+    no_study: 'لا توجد دراسة محملة', import_hint: 'استيراد ملفات DICOM للبدء',
+    study_manager: 'مدير الدراسة', drop_files: 'أسقط ملفات DICOM هنا', or_browse: 'أو انقر للتصفح',
+    series_stack: 'مجموعة السلاسل', no_study_title: 'لا توجد دراسة',
+    no_study_empty: 'لا توجد دراسة محملة\nاستورد سلسلة DICOM للبدء',
+    wl_presets: 'الإعدادات المسبقة', lung: 'رئة', bone: 'عظام', brain: 'دماغ',
+    soft_tissue: 'أنسجة رخوة', abdomen: 'بطن', mediastinum: 'منصف', stroke: 'سكتة دماغية',
+    cine: 'سينا', export_png: 'تصدير PNG', export_report: 'تصدير تقرير', clear_all: 'مسح الكل',
+    zoom_out: 'تصغير', zoom_in: 'تكبير', fit: 'ملاءمة', reset: 'إعادة تعيين',
+    rot_l: 'تدوير يسار', rot_r: 'تدوير يمين', flip_h: 'قلب أفقي', flip_v: 'قلب رأسي',
+    invert: 'عكس [I]', fullscreen: 'شاشة كاملة [F]', clear_meas: 'مسح القياسات',
+    pos: 'موضع', zoom: 'تكبير', slice: 'شريحة',
+    mouse_hint: 'زر أيمن: النافذة | تمرير: الشريحة | Ctrl+عجلة: تكبير',
+    study_info: 'معلومات الدراسة', patient_section: 'المريض', study_section: 'الدراسة',
+    image_section: 'الصورة', name: 'الاسم', patient_id: 'معرف المريض', birth: 'تاريخ الميلاد',
+    sex: 'الجنس', description: 'الوصف', institution: 'المؤسسة',
+    dimensions: 'الأبعاد', px_spacing: 'تباعد البكسل', slice_thick: 'سماكة الشريحة',
+    bit_depth: 'عمق البت', instance: 'رقم المثيل',
+    windowing: 'النوافذ', window_width: 'عرض النافذة', window_level: 'مستوى النافذة',
+    display: 'العرض', invert_lut: 'عكس LUT', overlays: 'التراكبات', interpolation: 'الاستيفاء',
+    histogram: 'الرسم البياني', measurements: 'القياسات',
+    report_title: 'تصدير التقرير الإشعاعي', copy_clipboard: 'نسخ', close: 'إغلاق',
+    dark_mode: 'داكن', light_mode: 'فاتح',
+  }
+};
+
+let currentLang = 'en';
+
+function applyTranslations(lang) {
+  currentLang = lang;
+  const t = TRANSLATIONS[lang];
+  const dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.documentElement.setAttribute('lang', lang);
+  document.documentElement.setAttribute('dir', dir);
+
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (t[key] !== undefined) {
+      if (el.tagName === 'INPUT') el.placeholder = t[key];
+      else el.textContent = t[key];
+    }
+  });
+
+  // Update empty pbar values
+  const pbPatient = document.getElementById('pbPatient');
+  if (pbPatient.classList.contains('empty')) pbPatient.textContent = t.no_study || '—';
+  const pbDesc = document.getElementById('pbDesc');
+  if (pbDesc.classList.contains('empty')) pbDesc.textContent = t.import_hint || '—';
+
+  // Series empty text
+  const emptyEl = document.querySelector('.series-empty');
+  if (emptyEl) emptyEl.innerHTML = (t.no_study_empty || 'NO STUDY LOADED').replace('\n', '<br>');
+
+  // Mode label
+  const modeLabel = document.getElementById('modeLabel');
+  const isLight = document.getElementById('app').dataset.mode === 'light';
+  modeLabel.textContent = isLight ? (t.light_mode || 'LIGHT') : (t.dark_mode || 'DARK');
+}
+
+// Language switcher
+document.querySelectorAll('.lang-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyTranslations(btn.dataset.lang);
+  });
+});
+
+/* ══════════════════════════════════════════
+   DARK / LIGHT MODE TOGGLE
+══════════════════════════════════════════ */
+const modeSwitch = document.getElementById('modeSwitch');
+const modeIcon   = document.getElementById('modeIcon');
+const modeLabel  = document.getElementById('modeLabel');
+const app        = document.getElementById('app');
+
+modeSwitch.addEventListener('click', () => {
+  const isLight = app.dataset.mode !== 'light';
+  app.dataset.mode = isLight ? 'light' : '';
+  modeSwitch.classList.toggle('light-mode', isLight);
+  modeIcon.textContent = isLight ? '☀️' : '🌙';
+  const t = TRANSLATIONS[currentLang];
+  modeLabel.textContent = isLight ? (t.light_mode || 'LIGHT') : (t.dark_mode || 'DARK');
+});
+
+/* ══════════════════════════════════════════
+   APPLICATION STATE
+══════════════════════════════════════════ */
+const state = {
+  files: [], imageIds: [], currentIndex: 0,
+  currentImage: null,
+  windowWidth: 400, windowLevel: 40,
+  rotation: 0, flipH: false, flipV: false,
+  invert: false, overlayVisible: true, interpEnabled: true,
+  activeTool: 'Pan',
+  cine: { playing: false, timer: null, fps: 8 },
+  measurements: [],
+};
+
+/* ══════════════════════════════════════════
+   CORNERSTONE INIT
+══════════════════════════════════════════ */
+const el = document.getElementById('dicom-element');
+
+cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+cornerstoneTools.external.cornerstone           = cornerstone;
+cornerstoneTools.external.cornerstoneMath       = cornerstoneMath;
+
+cornerstoneTools.init({
+  mouseEnabled: true, touchEnabled: false,
+  globalToolSyncEnabled: false, showSVGCursors: true,
+});
+
+cornerstone.enable(el);
+
+const toolsToAdd = [
+  cornerstoneTools.PanTool, cornerstoneTools.ZoomTool,
+  cornerstoneTools.WwwcTool, cornerstoneTools.LengthTool,
+  cornerstoneTools.AngleTool, cornerstoneTools.EllipticalRoiTool,
+  cornerstoneTools.StackScrollMouseWheelTool, cornerstoneTools.WwwcRegionTool,
+];
+toolsToAdd.forEach(T => { try { cornerstoneTools.addTool(T); } catch(e) {} });
+
+try {
+  cornerstoneTools.setToolActive('StackScrollMouseWheel', {});
+  cornerstoneTools.setToolActive('Wwwc', { mouseButtonMask: 2 });
+} catch(e) {}
+
+function activateTool(name) {
+  ['Pan','Zoom','Wwwc','Length','Angle','EllipticalRoi'].forEach(t => {
+    try { cornerstoneTools.setToolPassive(t); } catch(e) {}
+  });
+  try {
+    cornerstoneTools.setToolActive(name, { mouseButtonMask: 1 });
+    cornerstoneTools.setToolActive('Wwwc', { mouseButtonMask: 2 });
+  } catch(e) {}
+  state.activeTool = name;
+}
+activateTool('Pan');
+
+/* ══════════════════════════════════════════
+   TOOL BUTTONS
+══════════════════════════════════════════ */
+['toolPan','toolWL','toolZoom','toolLength','toolAngle','toolROI'].forEach(id => {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tbtn[data-tool]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activateTool(btn.dataset.tool);
+    document.getElementById('statTool').textContent = btn.dataset.tool.toUpperCase();
+  });
+});
+
+/* ══════════════════════════════════════════
+   FILE HANDLING
+══════════════════════════════════════════ */
+const dropZone  = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  processFiles([...e.dataTransfer.files]);
+});
+fileInput.addEventListener('change', e => processFiles([...e.target.files]));
+
+function processFiles(files) {
+  if (!files.length) return;
+  const dcmFiles = files.filter(f =>
+    f.name.toLowerCase().endsWith('.dcm') ||
+    f.name.toLowerCase().endsWith('.dicom') ||
+    f.type === 'application/dicom' ||
+    !f.name.includes('.')
+  );
+  const toLoad = dcmFiles.length > 0 ? dcmFiles : files;
+  state.files = [...state.files, ...toLoad];
+  state.imageIds = state.files.map(f => cornerstoneWADOImageLoader.wadouri.fileManager.add(f));
+  const count = `${state.files.length}`;
+  document.getElementById('seriesCount').textContent = count;
+  document.getElementById('seriesCountSub').textContent = `${state.files.length} image${state.files.length !== 1 ? 's' : ''}`;
+  buildThumbnails();
+  loadImage(state.files.length - toLoad.length);
+  toast(`Loaded ${toLoad.length} file${toLoad.length !== 1 ? 's' : ''} — ${state.files.length} total`);
+}
+
+function buildThumbnails() {
+  const list = document.getElementById('thumbnailsList');
+  list.innerHTML = '';
+  state.files.forEach((f, i) => {
+    const item = document.createElement('div');
+    item.className = 'thumb-item' + (i === state.currentIndex ? ' active' : '');
+    item.dataset.index = i;
+    item.innerHTML = `
+      <div class="thumb-canvas" id="thumbCanvas${i}">DCM</div>
+      <div class="thumb-info">
+        <div class="thumb-name">${f.name}</div>
+        <div class="thumb-num">#${String(i + 1).padStart(3, '0')}</div>
+      </div>`;
+    item.addEventListener('click', () => loadImage(i));
+    list.appendChild(item);
+  });
+}
+
+function renderThumbnail(index) {
+  if (index >= state.files.length) return;
+  cornerstone.loadImage(state.imageIds[index]).then(image => {
+    const cell = document.getElementById(`thumbCanvas${index}`);
+    if (!cell) return;
+    cell.innerHTML = '';
+    const canvas = document.createElement('canvas');
+    canvas.width = 38; canvas.height = 38;
+    const ctx = canvas.getContext('2d');
+    const vp = cornerstone.getDefaultViewportForImage(el, image);
+    const tempEl = document.createElement('div');
+    tempEl.style.cssText = 'position:fixed;left:-9999px;width:38px;height:38px;';
+    document.body.appendChild(tempEl);
+    cornerstone.enable(tempEl);
+    cornerstone.displayImage(tempEl, image, vp);
+    const src = tempEl.querySelector('canvas');
+    if (src) ctx.drawImage(src, 0, 0, 38, 38);
+    document.body.removeChild(tempEl);
+    cornerstone.disable(tempEl);
+    cell.appendChild(canvas);
+  }).catch(() => {});
+}
+
+/* ══════════════════════════════════════════
+   LOAD & DISPLAY IMAGE
+══════════════════════════════════════════ */
+function loadImage(idx) {
+  if (idx < 0 || idx >= state.files.length) return;
+  state.currentIndex = idx;
+
+  document.querySelectorAll('.thumb-item').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+    if (i === idx) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+
+  const first = idx === 0, last = idx === state.files.length - 1;
+  ['btnPrev','navPrev'].forEach(id => document.getElementById(id).disabled = first);
+  ['btnNext','navNext'].forEach(id => document.getElementById(id).disabled = last);
+
+  const counter = document.getElementById('sliceCounter');
+  counter.style.display = 'block';
+  document.getElementById('sliceCurrent').textContent = idx + 1;
+  document.getElementById('sliceTotal').textContent = state.files.length;
+
+  const bar = document.getElementById('progressBar');
+  bar.className = 'progress-bar loading';
+
+  cornerstone.loadImage(state.imageIds[idx]).then(image => {
+    state.currentImage = image;
+    state.windowWidth  = image.windowWidth  || 400;
+    state.windowLevel  = image.windowCenter || 40;
+
+    cornerstoneTools.clearToolState(el, 'stack');
+    const stack = { currentImageIdIndex: idx, imageIds: state.imageIds };
+    cornerstoneTools.addToolState(el, 'stack', stack);
+
+    const vp = cornerstone.getDefaultViewportForImage(el, image);
+    vp.voi.windowWidth  = state.windowWidth;
+    vp.voi.windowCenter = state.windowLevel;
+    vp.rotation         = state.rotation;
+    vp.hflip            = state.flipH;
+    vp.vflip            = state.flipV;
+    vp.invert           = state.invert;
+    vp.pixelReplication = !state.interpEnabled;
+    cornerstone.displayImage(el, image, vp);
+
+    updateDicomInfo(image);
+    updateHistogram(image);
+    updateZoomDisplay();
+    updateOverlays();
+
+    document.getElementById('emptyState').classList.add('hidden');
+    el.classList.add('appear');
+    setTimeout(() => el.classList.remove('appear'), 300);
+
+    bar.className = 'progress-bar done';
+    setTimeout(() => { bar.className = 'progress-bar'; }, 500);
+    setTimeout(() => renderThumbnail(idx), 100);
+
+  }).catch(err => {
+    console.error('DICOM load error:', err);
+    bar.className = 'progress-bar';
+    toast('⚠ Cannot read this DICOM file');
+  });
+}
+
+/* ══════════════════════════════════════════
+   VIEWPORT CONTROL
+══════════════════════════════════════════ */
+function applyViewport(opts = {}) {
+  if (!state.currentImage) return;
+  try {
+    const vp = cornerstone.getViewport(el);
+    if (!vp) return;
+    if (opts.ww !== undefined) vp.voi.windowWidth  = opts.ww;
+    if (opts.wl !== undefined) vp.voi.windowCenter = opts.wl;
+    vp.rotation = state.rotation; vp.hflip = state.flipH; vp.vflip = state.flipV;
+    vp.invert = state.invert; vp.pixelReplication = !state.interpEnabled;
+    cornerstone.setViewport(el, vp);
+    updateZoomDisplay(); updateOverlays();
+    state.windowWidth = vp.voi.windowWidth;
+    state.windowLevel = vp.voi.windowCenter;
+    document.getElementById('statWW').textContent = Math.round(state.windowWidth);
+    document.getElementById('statWL').textContent = Math.round(state.windowLevel);
+  } catch(e) {}
+}
+
+function updateZoomDisplay() {
+  try {
+    const vp = cornerstone.getViewport(el);
+    if (!vp) return;
+    const pct = Math.round(vp.scale * 100) + '%';
+    document.getElementById('zoomDisplay').textContent = pct;
+    document.getElementById('statZoom').textContent = pct;
+  } catch(e) {}
+}
+
+el.addEventListener('cornerstoneimagerendered', () => {
+  updateZoomDisplay();
+  try {
+    const vp = cornerstone.getViewport(el);
+    if (vp) {
+      state.windowWidth  = vp.voi.windowWidth;
+      state.windowLevel  = vp.voi.windowCenter;
+      document.getElementById('statWW').textContent = Math.round(state.windowWidth);
+      document.getElementById('statWL').textContent = Math.round(state.windowLevel);
+      updateOverlays();
+    }
+  } catch(e) {}
+});
+
+el.addEventListener('cornerstonetoolsmeasurementadded', updateMeasurements);
+el.addEventListener('cornerstonetoolsmeasurementmodified', updateMeasurements);
+el.addEventListener('cornerstonetoolsmeasurementremoved', updateMeasurements);
+
+el.addEventListener('cornerstonestackscroll', e => {
+  if (e.detail && e.detail.newImageIdIndex !== undefined) {
+    const newIdx = e.detail.newImageIdIndex;
+    if (newIdx !== state.currentIndex) {
+      state.currentIndex = newIdx;
+      state.currentImage = null;
+      document.getElementById('sliceCurrent').textContent = newIdx + 1;
+      document.querySelectorAll('.thumb-item').forEach((el, i) => el.classList.toggle('active', i === newIdx));
+      ['btnPrev','navPrev'].forEach(id => document.getElementById(id).disabled = newIdx === 0);
+      ['btnNext','navNext'].forEach(id => document.getElementById(id).disabled = newIdx === state.files.length - 1);
+    }
+  }
+});
+
+el.addEventListener('mousemove', e => {
+  const rect = el.getBoundingClientRect();
+  if (!state.currentImage) return;
+  const x = Math.round((e.clientX - rect.left) / rect.width  * (state.currentImage.columns || 512));
+  const y = Math.round((e.clientY - rect.top)  / rect.height * (state.currentImage.rows    || 512));
+  document.getElementById('statPos').textContent = `${x}, ${y}`;
+  try {
+    const pixelData = state.currentImage.getPixelData ? state.currentImage.getPixelData() : null;
+    if (pixelData && state.currentImage.columns) {
+      const pixIdx = y * state.currentImage.columns + x;
+      if (pixIdx >= 0 && pixIdx < pixelData.length) {
+        const raw = pixelData[pixIdx];
+        const hu  = raw * (state.currentImage.slope || 1) + (state.currentImage.intercept || 0);
+        document.getElementById('statHU').textContent = Math.round(hu) + ' HU';
+      }
+    }
+  } catch(e) {}
+});
+
+/* ══════════════════════════════════════════
+   ZOOM / NAV BUTTONS
+══════════════════════════════════════════ */
+document.getElementById('btnZoomIn').addEventListener('click', () => {
+  try { const vp = cornerstone.getViewport(el); vp.scale = Math.min(vp.scale * 1.25, 12); cornerstone.setViewport(el, vp); updateZoomDisplay(); } catch(e) {}
+});
+document.getElementById('btnZoomOut').addEventListener('click', () => {
+  try { const vp = cornerstone.getViewport(el); vp.scale = Math.max(vp.scale * 0.8, 0.02); cornerstone.setViewport(el, vp); updateZoomDisplay(); } catch(e) {}
+});
+document.getElementById('btnFit').addEventListener('click', () => {
+  try { cornerstone.fitToWindow(el); updateZoomDisplay(); } catch(e) {}
+});
+document.getElementById('btnReset').addEventListener('click', () => {
+  if (!state.currentImage) return;
+  state.rotation = 0; state.flipH = false; state.flipV = false;
+  try {
+    const vp = cornerstone.getDefaultViewportForImage(el, state.currentImage);
+    vp.voi.windowWidth  = state.windowWidth;
+    vp.voi.windowCenter = state.windowLevel;
+    cornerstone.setViewport(el, vp); updateZoomDisplay();
+  } catch(e) {}
+});
+
+document.getElementById('btnRotL').addEventListener('click', () => { state.rotation -= 90; applyViewport(); });
+document.getElementById('btnRotR').addEventListener('click', () => { state.rotation += 90; applyViewport(); });
+document.getElementById('btnFlipH').addEventListener('click', () => { state.flipH = !state.flipH; applyViewport(); });
+document.getElementById('btnFlipV').addEventListener('click', () => { state.flipV = !state.flipV; applyViewport(); });
+
+function setInvert(v) {
+  state.invert = v;
+  document.getElementById('toggleInvert').classList.toggle('on', v);
+  applyViewport();
+}
+document.getElementById('btnInvert').addEventListener('click', () => setInvert(!state.invert));
+document.getElementById('toggleInvert').addEventListener('click', function() { setInvert(!state.invert); });
+
+document.getElementById('btnFullscreen').addEventListener('click', () => {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  else document.exitFullscreen();
+});
+
+document.getElementById('btnClearMeas').addEventListener('click', () => {
+  ['Length','Angle','EllipticalRoi'].forEach(t => { try { cornerstoneTools.clearToolState(el, t); } catch(e) {} });
+  try { cornerstone.updateImage(el); } catch(e) {}
+  updateMeasurements();
+  toast('Measurements cleared');
+});
+
+document.getElementById('btnPrev').addEventListener('click', () => loadImage(state.currentIndex - 1));
+document.getElementById('btnNext').addEventListener('click', () => loadImage(state.currentIndex + 1));
+document.getElementById('navPrev').addEventListener('click', () => loadImage(state.currentIndex - 1));
+document.getElementById('navNext').addEventListener('click', () => loadImage(state.currentIndex + 1));
+
+/* ══════════════════════════════════════════
+   KEYBOARD SHORTCUTS
+══════════════════════════════════════════ */
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const k = e.key;
+  if (k === 'ArrowLeft') loadImage(state.currentIndex - 1);
+  if (k === 'ArrowRight') loadImage(state.currentIndex + 1);
+  if (k === 'r' || k === 'R') document.getElementById('btnReset').click();
+  if (k === 'f' || k === 'F') document.getElementById('btnFit').click();
+  if (k === 'i' || k === 'I') setInvert(!state.invert);
+  if (k === 'p' || k === 'P') document.getElementById('toolPan').click();
+  if (k === 'w' || k === 'W') document.getElementById('toolWL').click();
+  if (k === 'z' || k === 'Z') document.getElementById('toolZoom').click();
+  if (k === 'l' || k === 'L') document.getElementById('toolLength').click();
+  if (k === 'a' || k === 'A') document.getElementById('toolAngle').click();
+  if (k === 'o' || k === 'O') document.getElementById('toolROI').click();
+  if (k === ' ') { e.preventDefault(); toggleCine(); }
+  if (k === 'Escape') stopCine();
+});
+
+/* ══════════════════════════════════════════
+   WINDOW / LEVEL SLIDERS — removed; sliders deleted from UI
+══════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════
+   PRESETS
+══════════════════════════════════════════ */
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const ww = +btn.dataset.ww, wl = +btn.dataset.wl;
+    state.windowWidth = ww; state.windowLevel = wl;
+    applyViewport({ ww, wl });
+    toast(`Preset: ${btn.textContent.trim()} — WW:${ww} WL:${wl}`);
+  });
+});
+
+/* ══════════════════════════════════════════
+   DISPLAY TOGGLES
+══════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════
+   CINE
+══════════════════════════════════════════ */
+document.getElementById('cinePlay').addEventListener('click', toggleCine);
+document.getElementById('cineStop').addEventListener('click', stopCine);
+document.getElementById('cinePrev').addEventListener('click', () => loadImage(state.currentIndex - 1));
+document.getElementById('cineNext').addEventListener('click', () => loadImage(state.currentIndex + 1));
+
+// CINE speed slider
+const cineSpeedEl = document.getElementById('cineSpeed');
+if (cineSpeedEl) {
+  cineSpeedEl.addEventListener('input', function() {
+    state.cine.fps = +this.value;
+    const fpsEl = document.getElementById('cineFps');
+    if (fpsEl) fpsEl.textContent = this.value + ' fps';
+    if (state.cine.playing) { stopCine(); startCine(); }
+  });
+}
+
+function toggleCine() { if (state.cine.playing) stopCine(); else startCine(); }
+function startCine() {
+  if (!state.files.length) { toast('No series loaded'); return; }
+  state.cine.playing = true;
+  document.getElementById('cinePlay').classList.add('active');
+  document.getElementById('cinePlay').textContent = '⏸';
+  const interval = Math.round(1000 / state.cine.fps);
+  state.cine.timer = setInterval(() => {
+    let next = state.currentIndex + 1;
+    if (next >= state.files.length) next = 0;
+    loadImage(next);
+  }, interval);
+}
+function stopCine() {
+  clearInterval(state.cine.timer);
+  state.cine.playing = false;
+  document.getElementById('cinePlay').classList.remove('active');
+  document.getElementById('cinePlay').textContent = '▶';
+}
+
+/* ══════════════════════════════════════════
+   EXPORT
+══════════════════════════════════════════ */
+document.getElementById('btnExportPng').addEventListener('click', () => {
+  if (!state.currentImage) { toast('No image loaded'); return; }
+  try {
+    const canvas = el.querySelector('canvas');
+    if (!canvas) { toast('Cannot access canvas'); return; }
+    const link = document.createElement('a');
+    link.download = `medvision_${state.currentIndex + 1}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    toast('Image exported as PNG');
+  } catch(e) { toast('Export failed: ' + e.message); }
+});
+
+document.getElementById('btnExportReport').addEventListener('click', () => {
+  const r = generateReport();
+  document.getElementById('reportContent').textContent = r;
+  document.getElementById('reportModal').classList.add('open');
+});
+document.getElementById('modalClose').addEventListener('click', () => {
+  document.getElementById('reportModal').classList.remove('open');
+});
+document.getElementById('modalCopy').addEventListener('click', () => {
+  navigator.clipboard.writeText(document.getElementById('reportContent').textContent)
+    .then(() => toast('Report copied to clipboard'))
+    .catch(() => toast('Copy failed'));
+});
+
+function generateReport() {
+  const now = new Date().toLocaleString();
+  const img  = state.currentImage;
+  if (!img) return 'No study loaded.';
+  const read = tag => { try { return img.data.string(tag) || '—'; } catch(e) { return '—'; } };
+  const fmtDate = s => (!s || s === '—' || s.length < 8) ? s : `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+  const measLines = state.measurements.map((m, i) => `  ${i+1}. ${m}`).join('\n') || '  No measurements recorded.';
+  return `NABIL MedVision — Radiology Report
+Generated: ${now}
+
+── PATIENT ─────────────────────────────
+  Name:       ${read('x00100010')}
+  Patient ID: ${read('x00100020')}
+  Birth Date: ${fmtDate(read('x00100030'))}
+  Sex:        ${read('x00100040')}
+
+── STUDY ───────────────────────────────
+  Modality:   ${read('x00080060')}
+  Study Date: ${fmtDate(read('x00080020'))}
+  Desc:       ${read('x00081030') || '—'}
+  Institution:${read('x00080080') || '—'}
+
+── IMAGE ───────────────────────────────
+  Dimensions: ${img.columns} × ${img.rows} px
+  Bit Depth:  ${read('x00280100')} bits
+  Pixel Spc:  ${read('x00280030')} mm
+  Slice Thk:  ${read('x00500010') || read('x00180050') || '—'} mm
+  Instance #: ${read('x00200013')}
+
+── WINDOWING ───────────────────────────
+  Window Width:  ${Math.round(state.windowWidth)}
+  Window Level:  ${Math.round(state.windowLevel)}
+  Loaded:        ${state.files.length} image(s)
+  Current:       ${state.currentIndex + 1} / ${state.files.length}
+
+── MEASUREMENTS ────────────────────────
+${measLines}
+
+──────────────────────────────────────
+  NABIL MedVision — Reference only.
+  Final diagnosis requires licensed radiologist review.
+`;
+}
+
+/* ══════════════════════════════════════════
+   CLEAR ALL
+══════════════════════════════════════════ */
+document.getElementById('btnClearAll').addEventListener('click', () => {
+  stopCine();
+  state.files = []; state.imageIds = []; state.currentIndex = 0;
+  state.currentImage = null; state.measurements = [];
+
+  try {
+    ['stack','Length','Angle','EllipticalRoi'].forEach(t => { try { cornerstoneTools.clearToolState(el, t); } catch(e) {} });
+    cornerstone.disable(el);
+  } catch(e) {}
+  try {
+    cornerstone.enable(el);
+    toolsToAdd.forEach(T => { try { cornerstoneTools.addTool(T); } catch(e) {} });
+    cornerstoneTools.setToolActive('StackScrollMouseWheel', {});
+    cornerstoneTools.setToolActive('Wwwc', { mouseButtonMask: 2 });
+    activateTool(state.activeTool || 'Pan');
+  } catch(e) {}
+  try {
+    const canvas = el.querySelector('canvas');
+    if (canvas) { const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); }
+  } catch(e) {}
+
+  const t = TRANSLATIONS[currentLang];
+  document.getElementById('thumbnailsList').innerHTML =
+    `<div class="series-empty">${(t.no_study_empty || 'NO STUDY LOADED\nImport DICOM series to begin').replace('\n','<br>')}</div>`;
+  document.getElementById('seriesCount').textContent = '0';
+  document.getElementById('seriesCountSub').textContent = '0 images';
+  document.getElementById('sliceCounter').style.display = 'none';
+  document.getElementById('emptyState').classList.remove('hidden');
+  ['ovTL','ovTR','ovBL','ovBR'].forEach(id => document.getElementById(id).innerHTML = '');
+
+  const pbPatient = document.getElementById('pbPatient');
+  pbPatient.textContent = t.no_study || 'No study loaded';
+  pbPatient.classList.add('empty');
+  ['pbDate','pbModality'].forEach(id => { document.getElementById(id).textContent = '—'; });
+  const pbDesc = document.getElementById('pbDesc');
+  pbDesc.textContent = t.import_hint || 'Import DICOM series to begin';
+  pbDesc.classList.add('empty');
+
+  ['iName','iPatID','iBirth','iSex','iMod','iDate','iDesc','iInst','iDims','iSpacing','iThick','iBits','iInstance'].forEach(id => {
+    document.getElementById(id).textContent = '—';
+  });
+  ['btnPrev','navPrev','btnNext','navNext'].forEach(id => document.getElementById(id).disabled = true);
+  document.getElementById('measSection').style.display = 'none';
+  document.getElementById('measList').innerHTML = '';
+  fileInput.value = '';
+  toast('Study cleared');
+});
+
+/* ══════════════════════════════════════════
+   MEASUREMENTS
+══════════════════════════════════════════ */
+function updateMeasurements() {
+  const items = [];
+  try {
+    const lengthData = cornerstoneTools.getToolState(el, 'Length');
+    if (lengthData && lengthData.data) {
+      lengthData.data.forEach((d, i) => { if (d.length) items.push(`Length ${i+1}: ${d.length.toFixed(2)} mm`); });
+    }
+  } catch(e) {}
+  try {
+    const angleData = cornerstoneTools.getToolState(el, 'Angle');
+    if (angleData && angleData.data) {
+      angleData.data.forEach((d, i) => {
+        if (d.rAngle !== undefined) items.push(`Angle ${i+1}: ${(d.rAngle * 180 / Math.PI).toFixed(1)}°`);
+      });
+    }
+  } catch(e) {}
+  try {
+    const roiData = cornerstoneTools.getToolState(el, 'EllipticalRoi');
+    if (roiData && roiData.data) {
+      roiData.data.forEach((d, i) => {
+        if (d.cachedStats) {
+          const s = d.cachedStats;
+          items.push(`ROI ${i+1}: Mean=${(s.mean||0).toFixed(1)} HU, Min=${(s.min||0).toFixed(0)}, Max=${(s.max||0).toFixed(0)}`);
+        }
+      });
+    }
+  } catch(e) {}
+  state.measurements = items;
+  const section = document.getElementById('measSection');
+  const list    = document.getElementById('measList');
+  if (items.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  list.innerHTML = items.map(m => `<div class="meas-item"><span class="meas-val">${m}</span></div>`).join('');
+}
+
+/* ══════════════════════════════════════════
+   DICOM METADATA
+══════════════════════════════════════════ */
+function updateDicomInfo(image) {
+  const read = tag => { try { return image.data.string(tag) || '—'; } catch(e) { return '—'; } };
+  const fmtDate = s => (!s || s === '—' || s.length < 8) ? (s||'—') : `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+
+  const name = read('x00100010');
+  const date = fmtDate(read('x00080020'));
+  const mod  = read('x00080060');
+  const desc = read('x00081030') || read('x0008103e');
+
+  document.getElementById('iName').textContent     = name;
+  document.getElementById('iPatID').textContent    = read('x00100020');
+  document.getElementById('iBirth').textContent    = fmtDate(read('x00100030'));
+  document.getElementById('iSex').textContent      = read('x00100040');
+  document.getElementById('iMod').textContent      = mod;
+  document.getElementById('iDate').textContent     = date;
+  document.getElementById('iDesc').textContent     = desc;
+  document.getElementById('iInst').textContent     = read('x00080080');
+  document.getElementById('iDims').textContent     = `${image.columns} × ${image.rows}`;
+  document.getElementById('iSpacing').textContent  = read('x00280030') !== '—' ? read('x00280030').split('\\')[0] + ' mm' : '—';
+  document.getElementById('iThick').textContent    = read('x00500010') || read('x00180050') || '—';
+  document.getElementById('iBits').textContent     = read('x00280100') + ' bits';
+  document.getElementById('iInstance').textContent = read('x00200013');
+
+  const pbName = document.getElementById('pbPatient');
+  const pbDate = document.getElementById('pbDate');
+  const pbMod  = document.getElementById('pbModality');
+  const pbDesc = document.getElementById('pbDesc');
+
+  pbName.textContent = name !== '—' ? name : 'Anonymous';
+  pbName.classList.toggle('empty', name === '—');
+  pbDate.textContent = date; pbDate.classList.remove('empty');
+  pbMod.textContent  = mod;  pbMod.classList.remove('empty');
+  pbDesc.textContent = desc !== '—' ? desc : `${state.files.length} image(s)`;
+  pbDesc.classList.remove('empty');
+
+  document.getElementById('statWW').textContent = Math.round(state.windowWidth);
+  document.getElementById('statWL').textContent = Math.round(state.windowLevel);
+}
+
+/* ══════════════════════════════════════════
+   OVERLAYS
+══════════════════════════════════════════ */
+function updateOverlays() {
+  if (!state.currentImage || !state.overlayVisible) return;
+  const img  = state.currentImage;
+  const read = tag => { try { return img.data.string(tag) || ''; } catch(e) { return ''; } };
+  const fmtD = s => (!s || s.length < 8) ? s : `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+  try {
+    const vp = cornerstone.getViewport(el);
+    document.getElementById('ovTL').innerHTML =
+      `<div>${read('x00100010') || 'Patient'}</div><div>${read('x00100020')}</div><div>${fmtD(read('x00100030'))}</div>`;
+    document.getElementById('ovTR').innerHTML =
+      `<div>${read('x00080060')}</div><div>${fmtD(read('x00080020'))}</div><div>${read('x00200013') ? 'Inst #' + read('x00200013') : ''}</div>`;
+    document.getElementById('ovBL').innerHTML =
+      `<div>${img.columns} × ${img.rows}</div><div>WW <span class="ov-val">${vp ? Math.round(vp.voi.windowWidth) : '—'}</span>  WL <span class="ov-val">${vp ? Math.round(vp.voi.windowCenter) : '—'}</span></div>`;
+    document.getElementById('ovBR').innerHTML =
+      `<div>Zoom <span class="ov-val">${vp ? Math.round(vp.scale * 100) : '—'}%</span></div><div>${state.currentIndex + 1} / ${state.files.length}</div>`;
+  } catch(e) {}
+}
+
+/* ══════════════════════════════════════════
+   HISTOGRAM — canvas renderer
+══════════════════════════════════════════ */
+function drawHistogramCanvas(data) {
+  const canvas = document.getElementById('histCanvas');
+  if (!canvas) return;
+  const wrap = document.getElementById('histogram');
+  const W = wrap.clientWidth  || 220;
+  const H = wrap.clientHeight || 80;
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  /* dark grid lines */
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let y = H * 0.25; y < H; y += H * 0.25) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  const BINS = data.length;
+  const maxV = Math.max(...data, 1);
+  const barW = W / BINS;
+
+  /* gradient: gold → cyan */
+  const grad = ctx.createLinearGradient(0, H, 0, 0);
+  grad.addColorStop(0,   '#e2b86b');
+  grad.addColorStop(0.5, '#a78bfa');
+  grad.addColorStop(1,   '#2dd4bf');
+
+  data.forEach((v, i) => {
+    const barH = Math.max(2, (v / maxV) * (H - 4));
+    const x = i * barW + 0.5;
+    ctx.fillStyle = grad;
+    ctx.globalAlpha = 0.88;
+    ctx.fillRect(x, H - barH, barW - 1.5, barH);
+  });
+  ctx.globalAlpha = 1;
+}
+
+function updateHistogram(image) {
+  const BINS = 32;
+  const data = new Array(BINS).fill(0);
+  try {
+    if (image && image.getPixelData) {
+      const px  = image.getPixelData();
+      const min = image.minPixelValue || 0;
+      const rng = (image.maxPixelValue || 4096) - min || 1;
+      for (let i = 0; i < px.length; i++) {
+        const bin = Math.floor(((px[i] - min) / rng) * (BINS - 1));
+        if (bin >= 0 && bin < BINS) data[bin]++;
+      }
+    } else {
+      [6,10,18,30,46,62,74,84,90,88,80,86,92,90,80,66,54,42,32,24,18,12,8,6,4,3,2,1,
+       2,3,5,4].forEach((v,i) => { data[i] = v; });
+    }
+  } catch(e) {}
+  drawHistogramCanvas(data);
+}
+
+/* ══════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════ */
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('visible'), 2500);
+}
+
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+// Decorative histogram on load
+(function() {
+  const demo = [6,10,18,30,46,62,74,84,90,88,80,86,92,90,80,66,54,42,32,24,18,12,8,6,4,3,2,1,2,3,5,4];
+  // Draw after layout settles
+  setTimeout(() => drawHistogramCanvas(demo), 120);
+})();
+
+toast('NABIL MedVision ready — Drop DICOM files to begin');
+
+/* ══════════════════════════════════════════
+   SCROLL INDICATOR for right panel
+══════════════════════════════════════════ */
+(function() {
+  const panel = document.getElementById('panelRight');
+  const bar   = document.getElementById('scrollBar');
+  if (!panel || !bar) return;
+  panel.addEventListener('scroll', () => {
+    const pct = panel.scrollTop / (panel.scrollHeight - panel.clientHeight) * 100;
+    bar.style.width = Math.min(100, pct) + '%';
+  });
+})();
+
+/* ══════════════════════════════════════════
+   RIGHT PANEL SCROLL NAV BUTTONS
+══════════════════════════════════════════ */
+(function() {
+  const panel    = document.getElementById('panelRight');
+  const btnUp    = document.getElementById('pScrollUp');
+  const btnDown  = document.getElementById('pScrollDown');
+  const btnHist  = document.getElementById('pScrollHist');
+  if (!panel || !btnUp || !btnDown) return;
+
+  const STEP = 120; // px per click
+
+  btnUp.addEventListener('click', () => {
+    panel.scrollBy({ top: -STEP, behavior: 'smooth' });
+  });
+  btnDown.addEventListener('click', () => {
+    panel.scrollBy({ top: STEP, behavior: 'smooth' });
+  });
+  if (btnHist) {
+    btnHist.addEventListener('click', () => {
+      const hist = document.getElementById('histogram');
+      if (hist) hist.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+
+  // Dim up/down arrows at scroll boundaries
+  function updateDim() {
+    const atTop    = panel.scrollTop <= 2;
+    const atBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 2;
+    btnUp.classList.toggle('dim', atTop);
+    btnDown.classList.toggle('dim', atBottom);
+  }
+  panel.addEventListener('scroll', updateDim);
+  updateDim();
+})();
+
+/* Redraw histogram on panel resize */
+(function() {
+  const demo = [6,10,18,30,46,62,74,84,90,88,80,86,92,90,80,66,54,42,32,24,18,12,8,6,4,3,2,1,2,3,5,4];
+  const ro = new ResizeObserver(() => {
+    if (!state.currentImage) drawHistogramCanvas(demo);
+  });
+  const wrap = document.getElementById('histogram');
+  if (wrap) ro.observe(wrap);
+})();
+
+/* ══════════════════════════════════════════
+   AI INTERPRETATION — Module
+══════════════════════════════════════════ */
+(function() {
+  const API_ENDPOINT = 'http://localhost:8000/interpret'; // ← point vers ton backend FastAPI
+
+  const btn        = document.getElementById('interpret-btn');
+  const btnToolbar = document.getElementById('interpret-btn-toolbar');
+  const resultBox  = document.getElementById('ai-result');
+  const panelRight = document.getElementById('panelRight');
+
+  /**
+   * Normalise une valeur de pixel brut en [0, 255]
+   * en appliquant les paramètres de fenêtrage DICOM (VOI LUT linéaire).
+   * @param {number} raw          – valeur pixel brute (ex: HU)
+   * @param {number} windowCenter – centre de fenêtre (WL)
+   * @param {number} windowWidth  – largeur de fenêtre (WW)
+   * @returns {number} valeur normalisée entre 0.0 et 1.0
+   */
+  function normalizePixel(raw, windowCenter, windowWidth) {
+    const low  = windowCenter - windowWidth / 2;
+    const high = windowCenter + windowWidth / 2;
+    if (raw <= low)  return 0.0;
+    if (raw >= high) return 1.0;
+    return (raw - low) / windowWidth;
+  }
+
+  /**
+   * Affiche un résultat ou une erreur dans #ai-result.
+   */
+  function showResult(data) {
+    resultBox.innerHTML = `
+      <div class="ai-result-header">
+        <div class="ai-result-dot"></div>
+        <span class="ai-result-label">Interprétation IA</span>
+        <span class="ai-result-tag">SIMULATED</span>
+      </div>
+      <div class="ai-result-body">${formatInterpretation(data.interpretation)}</div>
+    `;
+    resultBox.classList.add('visible');
+    // Scroll vers le résultat
+    setTimeout(() => resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+  }
+
+  function showError(msg) {
+    resultBox.innerHTML = `
+      <div class="ai-result-error">
+        <span style="font-size:14px;flex-shrink:0">⚠️</span>
+        <span>${msg}</span>
+      </div>
+    `;
+    resultBox.classList.add('visible');
+  }
+
+  /**
+   * Formate le texte d'interprétation : met en gras les termes médicaux clés.
+   */
+  function formatInterpretation(text) {
+    const keywords = [
+      'densité', 'opacité', 'nodule', 'lésion', 'masse', 'épanchement',
+      'normal', 'anormal', 'homogène', 'hétérogène', 'calcification',
+      'density', 'opacity', 'lesion', 'normal', 'abnormal',
+    ];
+    let html = text.replace(/\n/g, '<br>');
+    keywords.forEach(kw => {
+      const re = new RegExp(`(${kw})`, 'gi');
+      html = html.replace(re, '<strong>$1</strong>');
+    });
+    return html;
+  }
+
+  /**
+   * Fonction principale — déclenche l'interprétation IA.
+   */
+  async function runInterpretation() {
+    const el = document.getElementById('dicom-element');
+
+    // 1. Vérifier qu'une image est chargée
+    if (!state.currentImage) {
+      toast('⚠️ Aucune image chargée — importez un fichier DICOM d\'abord');
+      showError('Aucune image DICOM n\'est actuellement chargée dans le viewport.<br>Veuillez importer un fichier DICOM pour lancer l\'interprétation.');
+      resultBox.classList.add('visible');
+      return;
+    }
+
+    // 2. État "loading"
+    btn.disabled = true;
+    if (btnToolbar) btnToolbar.disabled = true;   // FIX: guard null
+    btn.classList.add('loading');
+    btn.querySelector('.btn-text').textContent = 'Analyse en cours…';
+    resultBox.classList.remove('visible');
+
+    try {
+      const image = state.currentImage;
+
+      // 3. Récupérer les pixelData bruts via Cornerstone
+      const pixelData = image.getPixelData();
+      const width      = image.columns;
+      const height     = image.rows;
+
+      // 4. Récupérer les paramètres de fenêtrage courants depuis le viewport
+      let windowCenter, windowWidth;
+      try {
+        const vp   = cornerstone.getViewport(el);
+        windowCenter = vp.voi.windowCenter;
+        windowWidth  = vp.voi.windowWidth;
+      } catch (_) {
+        windowCenter = image.windowCenter || state.windowLevel || 40;
+        windowWidth  = image.windowWidth  || state.windowWidth || 400;
+      }
+
+      // 5. Normaliser les pixels en Float32Array [0.0 → 1.0]
+      //    On sous-échantillonne si l'image est grande (> 128×128) pour alléger le payload.
+      const MAX_DIM = 128;
+      const scaleX  = width  > MAX_DIM ? Math.floor(width  / MAX_DIM) : 1;
+      const scaleY  = height > MAX_DIM ? Math.floor(height / MAX_DIM) : 1;
+      const sampledW = Math.ceil(width  / scaleX);
+      const sampledH = Math.ceil(height / scaleY);
+
+      const normalized = new Float32Array(sampledW * sampledH);
+      let idx = 0;
+      for (let row = 0; row < height; row += scaleY) {
+        for (let col = 0; col < width; col += scaleX) {
+          const raw = pixelData[row * width + col];
+          normalized[idx++] = normalizePixel(raw, windowCenter, windowWidth);
+        }
+      }
+
+      // 6. Construire le payload JSON
+      const payload = {
+        pixels:        Array.from(normalized),  // list[float] plat
+        width:         sampledW,
+        height:        sampledH,
+        windowCenter:  windowCenter,
+        windowWidth:   windowWidth,
+        modality:      (() => { try { return image.data.string('x00080060') || 'UNKNOWN'; } catch(_) { return 'UNKNOWN'; } })(),
+        bitsAllocated: (() => { try { return parseInt(image.data.string('x00280100')) || 16; } catch(_) { return 16; } })(),
+      };
+
+      toast('📡 Envoi au serveur d\'interprétation…');
+
+      // 7. Appel POST vers le backend FastAPI
+      const response = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => response.statusText);
+        throw new Error(`Serveur: ${response.status} — ${errText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.interpretation) {
+        throw new Error('Réponse invalide du serveur : champ "interpretation" manquant.');
+      }
+
+      // 8. Afficher le résultat
+      showResult(data);
+      toast('✅ Interprétation reçue');
+
+    } catch (err) {
+      console.error('[AI Interpret]', err);
+
+      // FIX: détection réseau robuste (Chrome, Firefox, Safari, Edge)
+      const isNetwork = err instanceof TypeError || (err.name === 'NetworkError') ||
+        /failed to fetch|network|load failed|connexion/i.test(err.message);
+
+      if (isNetwork) {
+        // ── MODE DÉMO : backend inaccessible → réponse simulée ──────────────
+        console.warn('[AI Interpret] Backend inaccessible — mode démo activé');
+        toast('⚠️ Backend absent — affichage d\'une interprétation simulée');
+
+        // Délai artificiel pour simuler le traitement
+        await new Promise(r => setTimeout(r, 1200));
+
+        const demoResponses = [
+          'Radiographie de thorax de face.\n\nParenchyme pulmonaire d\'aspect normal, sans opacité focale ni infiltrat visible. Silhouette cardiaque dans les limites normales (index cardiothoracique < 0,5). Coupoles diaphragmatiques régulières. Pas d\'épanchement pleural décelable. Médiastin non élargi.\n\nConclusion : Examen sans anomalie significative.',
+          'Tomodensitométrie thoracique.\n\nPas de nodule ni de masse pulmonaire identifiés. Densité parenchymateuse homogène bilatérale. Absence de foyer de condensation ou d\'opacité en verre dépoli. Aucun épanchement péricardique ni pleural. Médiastin d\'aspect normal.\n\nConclusion : Scanner thoracique dans les limites de la normale.',
+          'Radiographie du rachis lombaire.\n\nPincement discal modéré en L4-L5 avec ostéophytose marginale associée. Hauteurs des espaces intervertébraux conservées aux autres niveaux. Pas de lyse isthmique ni de spondylolisthésis. Densité osseuse normale.\n\nConclusion : Signes dégénératifs débutants L4-L5.',
+        ];
+        const pick = demoResponses[Math.floor(Math.random() * demoResponses.length)];
+        showResult({ interpretation: pick });
+        toast('✅ Interprétation simulée (démo)');
+        // ────────────────────────────────────────────────────────────────────
+      } else {
+        showError(err.message || 'Erreur inattendue lors de l\'analyse.');
+        toast('❌ Erreur d\'interprétation');
+      }
+    } finally {
+      btn.disabled = false;
+      if (btnToolbar) btnToolbar.disabled = false;   // FIX: guard null
+      btn.classList.remove('loading');
+      btn.querySelector('.btn-text').textContent = '🧠 Interpréter l\'image';
+    }
+  }
+
+  // Attacher les listeners
+  btn.addEventListener('click', runInterpretation);
+  btnToolbar.addEventListener('click', () => {
+    // Scroller jusqu'au panneau droite et déclencher
+    const interpretSection = document.getElementById('interpretSection');
+    if (interpretSection && panelRight) {
+      interpretSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    runInterpretation();
+  });
+
+  // Raccourci clavier Ctrl+I
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+      e.preventDefault();
+      runInterpretation();
+    }
+  });
+
+})();
+</script>
+</body>
+</html>

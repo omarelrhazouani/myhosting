@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Hamza DICOM Viewer Pro - Visualiseur Médical Nouvelle Génération</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://unpkg.com/dicom-parser@1.8.21/dist/dicomParser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #0a0c15; color: #e2e8f0; height: 100vh; overflow: hidden; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #1a1f2e; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
+        .app { display: flex; flex-direction: column; height: 100vh; }
+        .header { background: linear-gradient(135deg, #0a0f1a 0%, #0f172a 100%); border-bottom: 1px solid rgba(59,130,246,0.2); padding: 0.6rem 1.8rem; display: flex; justify-content: space-between; align-items: center; }
+        .logo { display: flex; align-items: center; gap: 12px; }
+        .logo-icon { background: linear-gradient(135deg, #3b82f6, #06b6d4); width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; box-shadow: 0 4px 15px rgba(59,130,246,0.3); }
+        .logo-text h1 { font-size: 1.3rem; font-weight: 700; background: linear-gradient(135deg, #fff, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .logo-text p { font-size: 0.7rem; opacity: 0.7; }
+        .header-actions { display: flex; gap: 12px; }
+        .btn-icon { background: rgba(255,255,255,0.05); border: 1px solid rgba(59,130,246,0.2); padding: 7px 14px; border-radius: 10px; color: #e2e8f0; cursor: pointer; transition: all 0.2s; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-icon:hover { background: rgba(59,130,246,0.2); border-color: #3b82f6; color: #3b82f6; }
+        .main-layout { display: flex; flex: 1; overflow: hidden; padding: 14px; gap: 14px; }
+        .sidebar { width: 320px; background: linear-gradient(135deg, #0f1422, #0a0f1a); border-radius: 20px; border: 1px solid rgba(59,130,246,0.15); display: flex; flex-direction: column; overflow: hidden; }
+        .sidebar-header { padding: 18px; border-bottom: 1px solid rgba(59,130,246,0.1); }
+        .sidebar-header h3 { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #3b82f6; margin-bottom: 12px; }
+        .upload-area { border: 2px dashed rgba(59,130,246,0.3); border-radius: 14px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; background: rgba(59,130,246,0.03); margin-bottom: 12px; }
+        .upload-area:hover { border-color: #3b82f6; background: rgba(59,130,246,0.1); }
+        .upload-area i { font-size: 1.6rem; color: #3b82f6; }
+        .upload-area p { font-size: 0.7rem; margin-top: 6px; }
+        .url-import { background: rgba(0,0,0,0.3); border-radius: 12px; padding: 10px; }
+        .url-input-group { display: flex; gap: 8px; margin-top: 8px; }
+        .url-input { flex: 1; background: #111827; border: 1px solid #2d3a4e; border-radius: 10px; padding: 8px 10px; color: #e2e8f0; font-size: 0.7rem; }
+        .url-input:focus { outline: none; border-color: #3b82f6; }
+        .url-btn { background: #3b82f6; border: none; border-radius: 10px; padding: 0 14px; color: white; cursor: pointer; font-size: 0.7rem; font-weight: 600; }
+        .series-list { flex: 1; overflow-y: auto; padding: 12px; }
+        .series-item { background: rgba(17,24,39,0.6); border-radius: 12px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid rgba(59,130,246,0.1); }
+        .series-item:hover { background: #1a2335; border-color: #3b82f6; }
+        .series-item.active { background: linear-gradient(135deg, #1e2a4a, #16203a); border-left: 3px solid #3b82f6; }
+        .series-name { font-weight: 600; font-size: 0.75rem; display: flex; justify-content: space-between; }
+        .series-info { font-size: 0.6rem; opacity: 0.6; margin-top: 4px; }
+        .viewport-area { flex: 1; background: #06090f; border-radius: 20px; border: 1px solid rgba(59,130,246,0.15); display: flex; flex-direction: column; overflow: hidden; }
+        .toolbar { padding: 10px 16px; background: rgba(15,20,34,0.95); border-bottom: 1px solid rgba(59,130,246,0.1); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .tool-group { display: flex; gap: 4px; background: #0a0f1a; padding: 4px 10px; border-radius: 40px; border: 1px solid #2d3a4e; }
+        .tool-btn { background: transparent; border: none; color: #94a3b8; padding: 5px 10px; border-radius: 30px; cursor: pointer; transition: all 0.2s; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 5px; }
+        .tool-btn:hover, .tool-btn.active { background: #3b82f6; color: white; }
+        .canvas-container { flex: 1; display: flex; flex-direction: column; position: relative; background: #000000; overflow: hidden; }
+        .canvas-wrapper { flex: 1; display: flex; justify-content: center; align-items: center; overflow: auto; cursor: default; position: relative; }
+        .canvas-wrapper.panning { cursor: grab; }
+        .canvas-wrapper.panning:active { cursor: grabbing; }
+        .canvas-wrapper.wl-adjust { cursor: ew-resize; }
+        #mainCanvas { display: block; box-shadow: 0 0 0 1px rgba(59,130,246,0.2); max-width: 100%; max-height: 100%; }
+        .series-slider-container { padding: 12px 20px; background: rgba(15,20,34,0.9); border-top: 1px solid rgba(59,130,246,0.1); display: flex; gap: 15px; align-items: center; }
+        #seriesSlider { flex: 1; height: 4px; -webkit-appearance: none; background: #1e2a3a; border-radius: 5px; }
+        #seriesSlider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #3b82f6; cursor: pointer; }
+        .slice-info { font-size: 0.7rem; font-family: monospace; background: #1a2335; padding: 4px 10px; border-radius: 20px; }
+        .params-panel { width: 320px; background: linear-gradient(135deg, #0f1422, #0a0f1a); border-radius: 20px; border: 1px solid rgba(59,130,246,0.15); display: flex; flex-direction: column; overflow-y: auto; }
+        .param-section { padding: 16px; border-bottom: 1px solid rgba(59,130,246,0.1); }
+        .param-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: #3b82f6; margin-bottom: 12px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .slider-control { margin: 10px 0; }
+        .slider-control label { font-size: 0.7rem; display: flex; justify-content: space-between; margin-bottom: 5px; opacity: 0.8; }
+        input[type="range"] { width: 100%; background: #1e2a3a; height: 4px; border-radius: 10px; -webkit-appearance: none; }
+        input[type="range"]::-webkit-slider-thumb { width: 14px; height: 14px; border-radius: 50%; background: #3b82f6; cursor: pointer; -webkit-appearance: none; }
+        .preset-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 10px; }
+        .preset-chip { background: #1a2335; border: none; color: #94a3b8; padding: 7px 5px; border-radius: 10px; font-size: 0.65rem; cursor: pointer; transition: all 0.2s; text-align: center; }
+        .preset-chip:hover { background: #3b82f6; color: white; }
+        .info-row { display: flex; justify-content: space-between; font-size: 0.7rem; padding: 7px 0; border-bottom: 1px dashed rgba(59,130,246,0.1); }
+        .wl-indicator { position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.85); padding: 5px 12px; border-radius: 20px; font-size: 0.65rem; font-family: monospace; border: 1px solid #3b82f6; pointer-events: none; z-index: 10; }
+        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center; z-index: 1000; visibility: hidden; opacity: 0; transition: 0.2s; flex-direction: column; gap: 15px; }
+        .spinner { width: 45px; height: 45px; border: 3px solid rgba(59,130,246,0.2); border-top: 3px solid #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .empty-state { text-align: center; padding: 35px; opacity: 0.6; }
+        .keyboard-hint { font-size: 0.6rem; color: #64748b; margin-top: 8px; text-align: center; }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon"><i class="fas fa-brain"></i></div>
+            <div class="logo-text">
+                <h1>HAMZA RAHIOUI <span style="font-size:0.7rem;">®</span></h1>
+                <p>Visualiseur DICOM nouvelle génération</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button id="playPauseBtn" class="btn-icon"><i class="fas fa-play"></i> Lecture</button>
+            <button id="fullscreenBtn" class="btn-icon"><i class="fas fa-expand"></i> Plein écran</button>
+            <button id="resetAllBtn" class="btn-icon"><i class="fas fa-trash-alt"></i> Reset</button>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-microchip"></i> SÉRIES DICOM</h3>
+                <div id="uploadZone" class="upload-area">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Importer DICOM / ZIP</p>
+                    <small>.dcm, .dic, .zip</small>
+                    <input type="file" id="fileInput" accept=".dcm,.dic,.zip" style="display: none;" multiple>
+                </div>
+                <div class="url-import">
+                    <div style="font-size:0.7rem; color:#3b82f6;"><i class="fas fa-link"></i> Import URL</div>
+                    <div class="url-input-group">
+                        <input type="text" id="urlInput" class="url-input" placeholder="https://.../fichier.zip">
+                        <button id="importUrlBtn" class="url-btn"><i class="fas fa-download"></i></button>
+                    </div>
+                </div>
+            </div>
+            <div class="series-list" id="seriesList">
+                <div class="empty-state"><i class="fas fa-folder-open" style="font-size: 1.8rem;"></i><p>Aucune série</p></div>
+            </div>
+            <div class="keyboard-hint">
+                <i class="fas fa-arrow-up"></i> <i class="fas fa-arrow-down"></i> Coupes · 
+                <i class="fas fa-mouse-pointer"></i> GLISSER → Window Level · 
+                <i class="fas fa-hand-paper"></i> PAN
+            </div>
+        </div>
+
+        <div class="viewport-area">
+            <div class="toolbar">
+                <div class="tool-group">
+                    <button class="tool-btn" id="zoomInBtn"><i class="fas fa-search-plus"></i> Zoom+</button>
+                    <button class="tool-btn" id="zoomOutBtn"><i class="fas fa-search-minus"></i> Zoom-</button>
+                    <button class="tool-btn" id="fitBtn"><i class="fas fa-expand-arrows-alt"></i> Fit</button>
+                </div>
+                <div class="tool-group">
+                    <button class="tool-btn" id="rotateLeftBtn"><i class="fas fa-undo-alt"></i> ↺</button>
+                    <button class="tool-btn" id="rotateRightBtn"><i class="fas fa-redo-alt"></i> ↻</button>
+                </div>
+                <div class="tool-group">
+                    <button class="tool-btn" id="invertBtn"><i class="fas fa-adjust"></i> Négatif</button>
+                    <button class="tool-btn" id="resetViewBtn"><i class="fas fa-sync-alt"></i> Reset</button>
+                </div>
+                <div class="tool-group">
+                    <button class="tool-btn" id="panBtn"><i class="fas fa-hand-paper"></i> Pan</button>
+                    <button class="tool-btn" id="wlModeBtn"><i class="fas fa-chart-line"></i> WL</button>
+                    <button class="tool-btn" id="autoWLBtn"><i class="fas fa-magic"></i> Auto</button>
+                </div>
+            </div>
+            <div class="canvas-container">
+                <div class="canvas-wrapper" id="canvasWrapper">
+                    <canvas id="mainCanvas" width="900" height="700"></canvas>
+                    <div id="emptyMsg" style="position:absolute; color:#64748b; text-align:center;">
+                        <i class="fas fa-x-ray" style="font-size: 2.5rem;"></i>
+                        <p>Déposez un dossier ZIP contenant des DICOM</p>
+                    </div>
+                    <div id="wlIndicator" class="wl-indicator" style="display:none;">WC: -- | WW: --</div>
+                </div>
+                <div class="series-slider-container">
+                    <i class="fas fa-arrow-left"></i>
+                    <input type="range" id="seriesSlider" min="0" max="100" value="0">
+                    <i class="fas fa-arrow-right"></i>
+                    <div class="slice-info" id="sliceInfo">Coupe 0/0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="params-panel">
+            <div class="param-section">
+                <div class="param-title"><i class="fas fa-chart-line"></i> FENÊTRES ANATOMIQUES</div>
+                <div class="slider-control">
+                    <label>Window Center (WC) <span id="wcValue">200</span></label>
+                    <input type="range" id="wcSlider" min="-2000" max="3000" step="1" value="200">
+                </div>
+                <div class="slider-control">
+                    <label>Window Width (WW) <span id="wwValue">400</span></label>
+                    <input type="range" id="wwSlider" min="1" max="4000" step="1" value="400">
+                </div>
+                <div class="preset-grid">
+                    <button class="preset-chip window-preset" data-ww="400" data-wc="40">🧠 Cerveau</button>
+                    <button class="preset-chip window-preset" data-ww="1500" data-wc="400">🦴 Os</button>
+                    <button class="preset-chip window-preset" data-ww="1500" data-wc="-600">🫁 Poumon</button>
+                    <button class="preset-chip window-preset" data-ww="350" data-wc="50">❤️ Abdomen</button>
+                    <button class="preset-chip window-preset" data-ww="2000" data-wc="200">⚡ Angio</button>
+                    <button class="preset-chip window-preset" data-ww="80" data-wc="40">🔬 TEP</button>
+                </div>
+            </div>
+
+            <div class="param-section">
+                <div class="param-title"><i class="fas fa-info-circle"></i> INFORMATIONS SÉRIE</div>
+                <div id="infoPanel">
+                    <div class="info-row"><span>Patient:</span><span id="patientName">---</span></div>
+                    <div class="info-row"><span>Modalité:</span><span id="modality">---</span></div>
+                    <div class="info-row"><span>Dimensions:</span><span id="dimensions">---</span></div>
+                    <div class="info-row"><span>Plage pixels:</span><span id="pixelRange">---</span></div>
+                    <div class="info-row"><span>Nombre coupes:</span><span id="sliceCount">0</span></div>
+                    <div class="info-row"><span>Zoom:</span><span id="zoomLevel">100%</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div id="loadingText">Chargement...</div>
+    <div id="progressInfo" class="progress-info"></div>
+</div>
+
+<script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const emptyMsg = document.getElementById('emptyMsg');
+    const loader = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+    const progressInfo = document.getElementById('progressInfo');
+    const canvasWrapper = document.getElementById('canvasWrapper');
+    const wlIndicator = document.getElementById('wlIndicator');
+    const seriesSlider = document.getElementById('seriesSlider');
+    const sliceInfo = document.getElementById('sliceInfo');
+
+    let currentSeries = null;
+    let currentZoom = 1, currentRotation = 0, currentPanX = 0, currentPanY = 0;
+    let currentInvert = false, currentWC = 200, currentWW = 400;
+    let seriesList = [], activeSeriesId = null;
+    let panMode = false, wlAdjustMode = false;
+    let isPanning = false, lastPanX = 0, lastPanY = 0;
+    let wlStartX = 0, wlStartWC = 0, wlStartWW = 0;
+    let autoPlayInterval = null, isPlaying = false;
+
+    function showLoader(show, text, progress = "") {
+        if (show) { loadingText.innerText = text; progressInfo.innerText = progress; loader.style.visibility = 'visible'; loader.style.opacity = '1'; }
+        else { loader.style.visibility = 'hidden'; loader.style.opacity = '0'; progressInfo.innerText = ""; }
+    }
+
+    function render() {
+        if (!currentSeries || !currentSeries.images || currentSeries.images.length === 0) {
+            emptyMsg.style.display = 'flex';
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            return;
+        }
+        emptyMsg.style.display = 'none';
+        
+        const img = currentSeries.images[currentSeries.currentIndex];
+        if (!img) return;
+        
+        const w = img.width, h = img.height;
+        const renderW = w * currentZoom, renderH = h * currentZoom;
+        canvas.width = renderW;
+        canvas.height = renderH;
+        
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = w;
+        offCanvas.height = h;
+        const offCtx = offCanvas.getContext('2d');
+        
+        // Window level correct avec valeurs signées
+        const low = currentWC - currentWW/2;
+        const high = currentWC + currentWW/2;
+        const imageData = offCtx.createImageData(w, h);
+        const pixels = img.pixels;
+        const minVal = img.minPixel;
+        const maxVal = img.maxPixel;
+        
+        for (let i = 0; i < w * h; i++) {
+            let val = pixels[i];
+            let mapped;
+            if (val <= low) mapped = 0;
+            else if (val >= high) mapped = 255;
+            else mapped = ((val - low) / (high - low)) * 255;
+            if (currentInvert) mapped = 255 - mapped;
+            const final = Math.min(255, Math.max(0, Math.floor(mapped)));
+            imageData.data[i*4] = final;
+            imageData.data[i*4+1] = final;
+            imageData.data[i*4+2] = final;
+            imageData.data[i*4+3] = 255;
+        }
+        offCtx.putImageData(imageData, 0, 0);
+        
+        wlIndicator.style.display = 'block';
+        wlIndicator.innerHTML = `WC: ${Math.round(currentWC)} | WW: ${Math.round(currentWW)} | Min:${minVal} Max:${maxVal}`;
+        
+        ctx.save();
+        ctx.clearRect(0, 0, renderW, renderH);
+        ctx.translate(currentPanX, currentPanY);
+        ctx.translate(renderW/2, renderH/2);
+        ctx.rotate(currentRotation * Math.PI/180);
+        ctx.drawImage(offCanvas, -renderW/2, -renderH/2, renderW, renderH);
+        ctx.restore();
+        
+        document.getElementById('zoomLevel').innerText = `${Math.round(currentZoom * 100)}%`;
+        document.getElementById('dimensions').innerHTML = `${w} × ${h}`;
+        document.getElementById('pixelRange').innerHTML = `${Math.round(minVal)} / ${Math.round(maxVal)}`;
+        sliceInfo.innerText = `Coupe ${currentSeries.currentIndex + 1}/${currentSeries.images.length}`;
+        seriesSlider.value = currentSeries.currentIndex;
+        seriesSlider.max = currentSeries.images.length - 1;
+    }
+    
+    function goToSlice(index) {
+        if (!currentSeries) return;
+        index = Math.max(0, Math.min(currentSeries.images.length - 1, index));
+        if (index !== currentSeries.currentIndex) {
+            currentSeries.currentIndex = index;
+            render();
+        }
+    }
+    
+    function nextSlice() { if (currentSeries) goToSlice(currentSeries.currentIndex + 1); }
+    function prevSlice() { if (currentSeries) goToSlice(currentSeries.currentIndex - 1); }
+    
+    function applyPreset(ww, wc) {
+        currentWW = ww;
+        currentWC = wc;
+        document.getElementById('wcSlider').value = currentWC;
+        document.getElementById('wwSlider').value = currentWW;
+        document.getElementById('wcValue').innerText = Math.round(currentWC);
+        document.getElementById('wwValue').innerText = Math.round(currentWW);
+        render();
+    }
+    
+    function autoWindowLevel() {
+        if (!currentSeries) return;
+        const img = currentSeries.images[currentSeries.currentIndex];
+        if (img) {
+            currentWC = (img.minPixel + img.maxPixel) / 2;
+            currentWW = img.maxPixel - img.minPixel;
+            if (currentWW <= 0) currentWW = 1;
+            document.getElementById('wcSlider').value = currentWC;
+            document.getElementById('wwSlider').value = currentWW;
+            document.getElementById('wcValue').innerText = Math.round(currentWC);
+            document.getElementById('wwValue').innerText = Math.round(currentWW);
+            render();
+        }
+    }
+    
+    function toggleAutoPlay() {
+        if (!currentSeries || currentSeries.images.length <= 1) return;
+        if (isPlaying) {
+            clearInterval(autoPlayInterval);
+            isPlaying = false;
+            document.getElementById('playPauseBtn').innerHTML = '<i class="fas fa-play"></i> Lecture';
+        } else {
+            autoPlayInterval = setInterval(() => {
+                if (currentSeries.currentIndex + 1 >= currentSeries.images.length) goToSlice(0);
+                else nextSlice();
+            }, 100);
+            isPlaying = true;
+            document.getElementById('playPauseBtn').innerHTML = '<i class="fas fa-pause"></i> Pause';
+        }
+    }
+    
+    async function extractDicomPixels(arrayBuffer) {
+        const byteArray = new Uint8Array(arrayBuffer);
+        const dataset = dicomParser.parseDicom(byteArray);
+        const pixelElem = dataset.elements.x7fe00010;
+        if (!pixelElem) throw new Error("Pixel Data non trouvé");
+        const rows = dataset.uint16('x00280010');
+        const cols = dataset.uint16('x00280011');
+        if (!rows || !cols) throw new Error("Dimensions manquantes");
+        const bits = dataset.uint16('x00280100') || 16;
+        const pixelRep = dataset.uint16('x00280103') || 0;
+        const pixelBuffer = new Uint8Array(arrayBuffer, pixelElem.dataOffset, pixelElem.length);
+        let pixelArray;
+        if (bits === 16) pixelArray = new Uint16Array(pixelBuffer.buffer, pixelBuffer.byteOffset, pixelBuffer.byteLength / 2);
+        else if (bits === 8) pixelArray = new Uint8Array(pixelBuffer);
+        else throw new Error(`Bits ${bits} non supportés`);
+        const pixels = pixelArray.slice(0, rows * cols);
+        let finalPixels = pixels;
+        let min = Infinity, max = -Infinity;
+        if (bits === 16 && pixelRep === 1) {
+            const signed = new Int16Array(pixels.length);
+            for (let i = 0; i < pixels.length; i++) signed[i] = pixels[i];
+            finalPixels = signed;
+            for (let v of finalPixels) { if (v < min) min = v; if (v > max) max = v; }
+        } else {
+            for (let v of finalPixels) { if (v < min) min = v; if (v > max) max = v; }
+        }
+        let wc = dataset.floatString('x00281050');
+        let ww = dataset.floatString('x00281051');
+        if (!wc || !ww || isNaN(wc) || isNaN(ww) || ww <= 0) {
+            wc = (min + max) / 2;
+            ww = max - min;
+            if (ww <= 0) ww = 1;
+        }
+        const patientName = dataset.string('x00100010') || 'Anonyme';
+        const modality = dataset.string('x00080060') || 'Inconnu';
+        const instanceNumber = dataset.uint32('x00200013') || 0;
+        return { pixels: finalPixels, width: cols, height: rows, minPixel: min, maxPixel: max, wc, ww, patientName, modality, instanceNumber };
+    }
+    
+    async function createSeriesFromFiles(files, seriesName) {
+        const images = [];
+        let patientName = "", modality = "", width = 0, height = 0;
+        for (const file of files) {
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pixelData = await extractDicomPixels(arrayBuffer);
+                images.push({
+                    pixels: pixelData.pixels,
+                    width: pixelData.width,
+                    height: pixelData.height,
+                    instanceNumber: pixelData.instanceNumber,
+                    wc: pixelData.wc,
+                    ww: pixelData.ww,
+                    minPixel: pixelData.minPixel,
+                    maxPixel: pixelData.maxPixel
+                });
+                if (!patientName) patientName = pixelData.patientName;
+                if (!modality) modality = pixelData.modality;
+                width = pixelData.width;
+                height = pixelData.height;
+            } catch(e) { console.warn(e); }
+        }
+        if (images.length === 0) return null;
+        images.sort((a,b) => a.instanceNumber - b.instanceNumber);
+        let sumWC = 0, sumWW = 0;
+        for (let img of images) { sumWC += img.wc; sumWW += img.ww; }
+        const avgWC = sumWC / images.length;
+        const avgWW = sumWW / images.length;
+        return {
+            id: `series_${Date.now()}`,
+            name: seriesName,
+            patientName: patientName,
+            modality: modality,
+            width: width,
+            height: height,
+            images: images,
+            currentIndex: 0,
+            wc: avgWC,
+            ww: avgWW
+        };
+    }
+    
+    async function processZipFile(arrayBuffer, zipName) {
+        const JSZip = window.JSZip;
+        const zip = await JSZip.loadAsync(arrayBuffer);
+        const dicomFiles = [];
+        for (const [filename, zipEntry] of Object.entries(zip.files)) {
+            if (!zipEntry.dir && (filename.toLowerCase().endsWith('.dcm') || filename.toLowerCase().endsWith('.dic'))) {
+                const fileData = await zipEntry.async('arraybuffer');
+                const blob = new Blob([fileData], { type: 'application/octet-stream' });
+                const file = new File([blob], filename);
+                dicomFiles.push(file);
+            }
+        }
+        if (dicomFiles.length === 0) throw new Error("Aucun fichier DICOM dans le ZIP");
+        const series = await createSeriesFromFiles(dicomFiles, zipName.replace('.zip', ''));
+        if (series) { seriesList.push(series); activeSeriesId = series.id; setActiveSeries(activeSeriesId); renderSeriesList(); }
+    }
+    
+    async function loadDicomFiles(files) {
+        const series = await createSeriesFromFiles(files, files[0]?.name || "Série");
+        if (series) { seriesList.push(series); activeSeriesId = series.id; setActiveSeries(activeSeriesId); renderSeriesList(); }
+    }
+    
+    function setActiveSeries(id) {
+        activeSeriesId = id;
+        currentSeries = seriesList.find(s => s.id === id);
+        if (currentSeries) {
+            currentWC = currentSeries.wc;
+            currentWW = currentSeries.ww;
+            document.getElementById('wcSlider').value = currentWC;
+            document.getElementById('wwSlider').value = currentWW;
+            document.getElementById('wcValue').innerText = Math.round(currentWC);
+            document.getElementById('wwValue').innerText = Math.round(currentWW);
+            document.getElementById('patientName').innerText = currentSeries.patientName;
+            document.getElementById('modality').innerText = currentSeries.modality;
+            document.getElementById('sliceCount').innerText = currentSeries.images.length;
+            const firstImg = currentSeries.images[0];
+            if (firstImg) document.getElementById('pixelRange').innerHTML = `${Math.round(firstImg.minPixel)} / ${Math.round(firstImg.maxPixel)}`;
+            seriesSlider.max = currentSeries.images.length - 1;
+            seriesSlider.value = 0;
+            currentZoom = 1; currentRotation = 0; currentPanX = 0; currentPanY = 0;
+            render();
+        }
+    }
+    
+    function renderSeriesList() {
+        const container = document.getElementById('seriesList');
+        if (!seriesList.length) { container.innerHTML = `<div class="empty-state"><i class="fas fa-folder-open"></i><p>Aucune série</p></div>`; return; }
+        container.innerHTML = seriesList.map(s => `<div class="series-item ${activeSeriesId === s.id ? 'active' : ''}" data-id="${s.id}"><div class="series-name"><span><i class="fas fa-layer-group"></i> ${s.modality} - ${s.images.length} coupes</span><span>${s.patientName.split('^')[0]}</span></div><div class="series-info">${s.width}×${s.height}</div></div>`).join('');
+        document.querySelectorAll('.series-item').forEach(el => el.addEventListener('click', () => setActiveSeries(el.dataset.id)));
+    }
+    
+    // Événements souris
+    function handleMouseDown(e) {
+        if (panMode) {
+            isPanning = true;
+            lastPanX = e.clientX; lastPanY = e.clientY;
+            canvasWrapper.style.cursor = 'grabbing';
+            return;
+        }
+        if (wlAdjustMode && currentSeries) {
+            wlStartX = e.clientX;
+            wlStartWC = currentWC;
+            wlStartWW = currentWW;
+            canvasWrapper.style.cursor = 'ew-resize';
+            e.preventDefault();
+        }
+    }
+    
+    function handleMouseMove(e) {
+        if (panMode && isPanning) {
+            currentPanX += e.clientX - lastPanX;
+            currentPanY += e.clientY - lastPanY;
+            lastPanX = e.clientX; lastPanY = e.clientY;
+            render();
+        }
+        if (wlAdjustMode && wlStartX !== 0 && currentSeries) {
+            const delta = e.clientX - wlStartX;
+            currentWC = Math.min(3000, Math.max(-2000, wlStartWC + delta * 2));
+            currentWW = Math.min(4000, Math.max(1, wlStartWW + delta * 1.5));
+            document.getElementById('wcSlider').value = currentWC;
+            document.getElementById('wwSlider').value = currentWW;
+            document.getElementById('wcValue').innerText = Math.round(currentWC);
+            document.getElementById('wwValue').innerText = Math.round(currentWW);
+            render();
+        }
+    }
+    
+    function handleMouseUp() { isPanning = false; wlStartX = 0; if (panMode) canvasWrapper.style.cursor = 'grab'; if (wlAdjustMode) canvasWrapper.style.cursor = 'ew-resize'; }
+    
+    canvasWrapper.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    
+    canvasWrapper.addEventListener('wheel', (e) => {
+        if (currentSeries) {
+            e.preventDefault();
+            if (e.ctrlKey) { currentZoom = Math.min(4, Math.max(0.3, currentZoom + (e.deltaY > 0 ? -0.1 : 0.1))); render(); }
+            else { if (e.deltaY > 0) nextSlice(); else prevSlice(); }
+        }
+    });
+    
+    window.addEventListener('keydown', (e) => {
+        if (!currentSeries) return;
+        if (e.key === 'ArrowUp') { prevSlice(); e.preventDefault(); }
+        else if (e.key === 'ArrowDown') { nextSlice(); e.preventDefault(); }
+        else if (e.key === 'PageUp') { goToSlice(currentSeries.currentIndex - 10); e.preventDefault(); }
+        else if (e.key === 'PageDown') { goToSlice(currentSeries.currentIndex + 10); e.preventDefault(); }
+        else if (e.key === 'Home') { goToSlice(0); e.preventDefault(); }
+        else if (e.key === 'End') { goToSlice(currentSeries.images.length - 1); e.preventDefault(); }
+        else if (e.key === ' ' || e.key === 'Space') { toggleAutoPlay(); e.preventDefault(); }
+    });
+    
+    // UI Events
+    document.getElementById('uploadZone').addEventListener('click', () => document.getElementById('fileInput').click());
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+        if (e.target.files.length) {
+            showLoader(true, "Traitement...");
+            const files = Array.from(e.target.files);
+            const zipFiles = files.filter(f => f.name.toLowerCase().endsWith('.zip'));
+            const dicomFiles = files.filter(f => f.name.toLowerCase().endsWith('.dcm') || f.name.toLowerCase().endsWith('.dic'));
+            for (const zip of zipFiles) { const arrayBuffer = await zip.arrayBuffer(); await processZipFile(arrayBuffer, zip.name); }
+            if (dicomFiles.length) await loadDicomFiles(dicomFiles);
+            showLoader(false);
+        }
+    });
+    
+    document.getElementById('importUrlBtn').addEventListener('click', async () => {
+        const url = document.getElementById('urlInput').value.trim();
+        if (!url) { alert("Entrez une URL"); return; }
+        showLoader(true, "Téléchargement...");
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const arrayBuffer = await response.arrayBuffer();
+            const fileName = url.split('/').pop() || 'file.zip';
+            if (fileName.toLowerCase().endsWith('.zip')) await processZipFile(arrayBuffer, fileName);
+            else alert("L'URL doit pointer vers un fichier ZIP");
+            showLoader(false);
+        } catch(err) { showLoader(false); alert(`Erreur: ${err.message}`); }
+    });
+    
+    const dropZone = document.getElementById('uploadZone');
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#3b82f6'; });
+    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = 'rgba(59,130,246,0.3)'; });
+    dropZone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'rgba(59,130,246,0.3)';
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length) {
+            showLoader(true, "Traitement...");
+            const zipFiles = files.filter(f => f.name.toLowerCase().endsWith('.zip'));
+            const dicomFiles = files.filter(f => f.name.toLowerCase().endsWith('.dcm') || f.name.toLowerCase().endsWith('.dic'));
+            for (const zip of zipFiles) { const arrayBuffer = await zip.arrayBuffer(); await processZipFile(arrayBuffer, zip.name); }
+            if (dicomFiles.length) await loadDicomFiles(dicomFiles);
+            showLoader(false);
+        }
+    });
+    
+    document.getElementById('zoomInBtn').onclick = () => { currentZoom = Math.min(currentZoom + 0.2, 4); render(); };
+    document.getElementById('zoomOutBtn').onclick = () => { currentZoom = Math.max(currentZoom - 0.2, 0.3); render(); };
+    document.getElementById('fitBtn').onclick = () => { currentZoom = 1; currentPanX = 0; currentPanY = 0; render(); };
+    document.getElementById('resetViewBtn').onclick = () => { currentZoom = 1; currentRotation = 0; currentPanX = 0; currentPanY = 0; render(); };
+    document.getElementById('rotateLeftBtn').onclick = () => { currentRotation = (currentRotation - 90) % 360; render(); };
+    document.getElementById('rotateRightBtn').onclick = () => { currentRotation = (currentRotation + 90) % 360; render(); };
+    document.getElementById('invertBtn').onclick = () => { currentInvert = !currentInvert; render(); };
+    document.getElementById('resetAllBtn').onclick = () => { seriesList = []; activeSeriesId = null; currentSeries = null; renderSeriesList(); ctx.clearRect(0,0,canvas.width,canvas.height); emptyMsg.style.display='flex'; if(autoPlayInterval) clearInterval(autoPlayInterval); isPlaying = false; };
+    document.getElementById('fullscreenBtn').onclick = () => { const area = document.querySelector('.viewport-area'); if(area.requestFullscreen) area.requestFullscreen(); };
+    document.getElementById('playPauseBtn').onclick = toggleAutoPlay;
+    document.getElementById('autoWLBtn').onclick = autoWindowLevel;
+    
+    document.getElementById('panBtn').onclick = () => {
+        panMode = !panMode; wlAdjustMode = false;
+        canvasWrapper.classList.toggle('panning', panMode);
+        document.getElementById('panBtn').classList.toggle('active', panMode);
+        document.getElementById('wlModeBtn').classList.remove('active');
+        canvasWrapper.style.cursor = panMode ? 'grab' : 'default';
+    };
+    document.getElementById('wlModeBtn').onclick = () => {
+        wlAdjustMode = !wlAdjustMode; panMode = false;
+        document.getElementById('wlModeBtn').classList.toggle('active', wlAdjustMode);
+        document.getElementById('panBtn').classList.remove('active');
+        canvasWrapper.style.cursor = wlAdjustMode ? 'ew-resize' : 'default';
+    };
+    
+    document.getElementById('wcSlider').oninput = (e) => { if(currentSeries) { currentWC = parseInt(e.target.value); document.getElementById('wcValue').innerText = currentWC; render(); } };
+    document.getElementById('wwSlider').oninput = (e) => { if(currentSeries) { currentWW = parseInt(e.target.value); document.getElementById('wwValue').innerText = currentWW; render(); } };
+    
+    document.querySelectorAll('.window-preset').forEach(btn => {
+        btn.onclick = () => { applyPreset(parseInt(btn.dataset.ww), parseInt(btn.dataset.wc)); };
+    });
+    
+    seriesSlider.addEventListener('input', (e) => { if(currentSeries) goToSlice(parseInt(e.target.value)); });
+    
+    emptyMsg.style.display = 'flex';
+    console.log("HAMZA RAHIOUI - Visualiseur DICOM avec fenêtres anatomiques corrigées");
+</script>
+</body>
+</html>

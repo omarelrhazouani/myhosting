@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DICOM Viewer – Zaynab BOUJLAL</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+  <!-- Cornerstone DICOM libraries -->
+  <script src="https://unpkg.com/cornerstone-core@2.6.1/dist/cornerstone.min.js"></script>
+  <script src="https://unpkg.com/dicom-parser@1.8.21/dist/dicomParser.min.js"></script>
+  <script src="https://unpkg.com/cornerstone-wado-image-loader@4.13.2/dist/cornerstoneWADOImageLoader.bundle.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #030609;
+      --panel: rgba(17,21,28,0.95);
+      --border: rgba(48,54,61,0.6);
+      --text: #e6edf3;
+      --text-secondary: #8b949e;
+      --accent: #2f81f7;
+      --accent-hover: #1f6feb;
+      --radius: 10px;
+      --success: #3fb950;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(1000px 700px at 80% -10%, rgba(47,129,247,0.12), transparent),
+                  radial-gradient(800px 500px at -10% 20%, rgba(110,64,201,0.1), transparent), #030609;
+      background-attachment: fixed;
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      min-height: 52px;
+    }
+
+    .logo {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo .sub {
+      font-size: 0.7em;
+      color: var(--text-secondary);
+      font-weight: 400;
+      font-style: italic;
+    }
+
+    .spacer { flex: 1; }
+
+    .btn {
+      padding: 7px 13px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82em;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn:hover { background: #1c212b; border-color: #4a5568; }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .btn.primary:hover { background: var(--accent-hover); }
+
+    .btn.danger { color: #f85149; border-color: #f85149; }
+    .btn.danger:hover { background: #f85149; color: #000; }
+
+    .divider { width: 1px; height: 24px; background: var(--border); margin: 0 2px; }
+
+    /* ── MAIN LAYOUT ── */
+    main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── LEFT SIDEBAR ── */
+    #leftPanel {
+      width: 250px;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .section-title {
+      font-size: 0.68em;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+      font-weight: 600;
+      padding: 12px 14px 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      margin: 12px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 24px 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.over {
+      border-color: var(--accent);
+      background: rgba(47,129,247,0.06);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-zone i { font-size: 2rem; color: var(--accent); margin-bottom: 8px; display: block; }
+    .drop-zone p { font-size: 0.8em; color: var(--text-secondary); line-height: 1.5; }
+    .drop-zone strong { color: var(--text); display: block; margin-bottom: 4px; }
+
+    /* File list */
+    .file-list {
+      list-style: none;
+      max-height: 160px;
+      overflow-y: auto;
+      padding: 4px 0;
+    }
+
+    .file-list li {
+      padding: 7px 14px;
+      font-size: 0.78em;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border-left: 3px solid transparent;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+
+    .file-list li:hover { background: #1c212b; color: var(--text); }
+    .file-list li.active { border-left-color: var(--accent); background: #1a2a3a; color: #fff; }
+
+    .file-list .empty { text-align: center; font-style: italic; cursor: default; padding: 14px; }
+
+    /* Controls */
+    .controls { padding: 10px 12px; }
+
+    .ctrl-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75em;
+      color: var(--text-secondary);
+      margin-bottom: 3px;
+    }
+
+    .ctrl-label .val { color: var(--accent); font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: #21262d;
+      outline: none;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #fff;
+      box-shadow: 0 0 5px rgba(47,129,247,0.4);
+    }
+
+    /* Presets */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+      padding: 8px 12px 12px;
+    }
+
+    .preset-btn {
+      padding: 7px 4px;
+      font-size: 0.72em;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      border-radius: 5px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .preset-btn:hover { background: #1f2937; border-color: var(--accent); color: #66b2ff; }
+    .preset-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+
+    /* ── VIEWER ── */
+    #viewerWrap {
+      flex: 1;
+      position: relative;
+      background: #000;
+      overflow: hidden;
+    }
+
+    #dicomEl {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+    }
+
+    #noImg {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--text-secondary);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    #noImg i { font-size: 4rem; opacity: 0.15; }
+    #noImg span { font-size: 0.85em; opacity: 0.4; }
+
+    #dropOverlay {
+      position: absolute;
+      inset: 16px;
+      border: 3px dashed var(--accent);
+      border-radius: 12px;
+      background: rgba(7,7,7,0.88);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+      opacity: 0;
+      pointer-events: none;
+      transition: 0.2s;
+      z-index: 50;
+      color: var(--text-secondary);
+      font-size: 0.9em;
+    }
+
+    #dropOverlay.active { opacity: 1; pointer-events: all; }
+    #dropOverlay i { font-size: 3rem; opacity: 0.4; }
+
+    /* Overlay info */
+    #overlayTL {
+      position: absolute;
+      top: 8px; left: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68em;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.8;
+      background: rgba(0,0,0,0.5);
+      padding: 4px 10px;
+      border-radius: 6px;
+      pointer-events: none;
+      z-index: 18;
+    }
+
+    #overlayBR {
+      position: absolute;
+      bottom: 8px; right: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68em;
+      color: rgba(255,255,255,0.45);
+      text-align: right;
+      pointer-events: none;
+      z-index: 18;
+    }
+
+    #statusBar {
+      position: absolute;
+      bottom: 8px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.6);
+      color: var(--text-secondary);
+      font-size: 0.7em;
+      padding: 4px 16px;
+      border-radius: 20px;
+      pointer-events: none;
+      z-index: 18;
+      white-space: nowrap;
+    }
+
+    /* ── RIGHT SIDEBAR ── */
+    #rightPanel {
+      width: 260px;
+      background: var(--panel);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 10px;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .info-card {
+      background: rgba(3,6,9,0.6);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+    }
+
+    .info-card h3 {
+      font-size: 0.68em;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(48,54,61,0.4);
+      font-size: 0.75em;
+    }
+
+    .info-row:last-child { border-bottom: none; }
+    .info-row .k { color: var(--text-secondary); }
+    .info-row .v { color: var(--text); font-weight: 500; text-align: right; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Loader */
+    #loader {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(3,6,9,0.85);
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 14px;
+      z-index: 100;
+    }
+
+    #loader.active { display: flex; }
+
+    .spinner {
+      width: 44px; height: 44px;
+      border: 3px solid rgba(47,129,247,0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loader p { font-size: 0.8em; color: var(--text-secondary); }
+
+    /* Slice nav */
+    #sliceNav {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 20;
+      opacity: 0;
+      transition: 0.2s;
+    }
+
+    #viewerWrap:hover #sliceNav { opacity: 1; }
+
+    #sliceNav button {
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.7);
+      width: 32px; height: 32px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    #sliceNav button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+    #sliceNav button:disabled { opacity: 0.2; cursor: not-allowed; }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 20px; right: 20px;
+      background: var(--panel);
+      border-left: 3px solid var(--success);
+      color: var(--success);
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-size: 0.8em;
+      font-family: 'JetBrains Mono', monospace;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      transform: translateX(120%);
+      transition: transform 0.3s;
+      z-index: 999;
+    }
+
+    #toast.error { border-color: #f85149; color: #f85149; }
+    #toast.show { transform: translateX(0); }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <i class="fas fa-x-ray"></i>
+    DICOM Viewer
+    <span class="sub">by Zaynab BOUJLAL</span>
+  </div>
+  <div class="divider"></div>
+  <button class="btn primary" onclick="document.getElementById('fileInput').click()">
+    <i class="fas fa-folder-open"></i> Ouvrir DICOM
+  </button>
+  <input type="file" id="fileInput" accept=".dcm,.dicom,*" multiple style="display:none"/>
+  <div class="divider"></div>
+  <button class="btn" onclick="invertImage()" title="Inverser (I)"><i class="fas fa-adjust"></i> Inverser</button>
+  <button class="btn" onclick="fitToScreen()" title="Ajuster (F)"><i class="fas fa-expand"></i> Ajuster</button>
+  <button class="btn" onclick="resetView()" title="Reset (R)"><i class="fas fa-undo"></i> Reset</button>
+  <div class="divider"></div>
+  <button class="btn danger" onclick="clearAll()"><i class="fas fa-trash"></i> Effacer</button>
+  <div class="spacer"></div>
+  <span id="fileCount" style="font-size:0.8em; color:var(--text-secondary);">Aucun fichier</span>
+</header>
+
+<main>
+  <!-- LEFT PANEL -->
+  <aside id="leftPanel">
+    <div class="section-title"><i class="fas fa-upload"></i> &nbsp;Charger fichiers</div>
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput2" accept=".dcm,.dicom,*" multiple/>
+      <i class="fas fa-cloud-upload-alt"></i>
+      <strong>Glisser-déposer</strong>
+      <p>Fichiers .dcm / DICOM<br/>ou cliquez pour parcourir</p>
+    </div>
+
+    <div class="section-title"><i class="fas fa-list"></i> &nbsp;Fichiers chargés</div>
+    <ul class="file-list" id="fileList">
+      <li class="empty">Aucun fichier chargé</li>
+    </ul>
+
+    <div class="section-title"><i class="fas fa-sliders-h"></i> &nbsp;Ajustements</div>
+    <div class="controls">
+      <div class="ctrl-label">Window Width <span class="val" id="wwVal">400</span></div>
+      <input type="range" id="wwSlider" min="1" max="4000" value="400" oninput="onSlider()"/>
+      <div class="ctrl-label">Window Center <span class="val" id="wlVal">40</span></div>
+      <input type="range" id="wlSlider" min="-1000" max="3000" value="40" oninput="onSlider()"/>
+      <div class="ctrl-label">Zoom <span class="val" id="zoomVal">100%</span></div>
+      <input type="range" id="zoomSlider" min="25" max="400" value="100" oninput="onZoomSlider()"/>
+    </div>
+
+    <div class="section-title"><i class="fas fa-magic"></i> &nbsp;Préréglages</div>
+    <div class="preset-grid">
+      <button class="preset-btn" onclick="applyPreset(400,40)">Tissu mou</button>
+      <button class="preset-btn" onclick="applyPreset(1500,-600)">Poumon</button>
+      <button class="preset-btn" onclick="applyPreset(2500,480)">Os</button>
+      <button class="preset-btn" onclick="applyPreset(80,40)">Cerveau</button>
+      <button class="preset-btn" onclick="applyPreset(350,60)">Abdomen</button>
+      <button class="preset-btn" onclick="applyPreset(600,300)">Médiastin</button>
+    </div>
+  </aside>
+
+  <!-- VIEWER -->
+  <div id="viewerWrap">
+    <div id="dicomEl"></div>
+
+    <div id="noImg">
+      <i class="fas fa-x-ray"></i>
+      <span>Chargez un fichier DICOM pour commencer</span>
+    </div>
+
+    <div id="dropOverlay">
+      <i class="fas fa-cloud-upload-alt"></i>
+      <span>Déposez vos fichiers DICOM ici</span>
+    </div>
+
+    <div id="overlayTL" style="display:none"></div>
+    <div id="overlayBR" style="display:none"></div>
+    <div id="statusBar">Prêt</div>
+
+    <div id="sliceNav" style="display:none">
+      <button onclick="prevSlice()" id="btnPrev" title="Précédent (←)"><i class="fas fa-chevron-up"></i></button>
+      <button onclick="nextSlice()" id="btnNext" title="Suivant (→)"><i class="fas fa-chevron-down"></i></button>
+    </div>
+
+    <div id="loader">
+      <div class="spinner"></div>
+      <p>Chargement en cours...</p>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <aside id="rightPanel">
+    <div class="info-card">
+      <h3><i class="fas fa-user"></i> &nbsp;Patient</h3>
+      <div class="info-row"><span class="k">Nom</span><span class="v" id="mPatientName">—</span></div>
+      <div class="info-row"><span class="k">ID</span><span class="v" id="mPatientID">—</span></div>
+      <div class="info-row"><span class="k">Âge</span><span class="v" id="mPatientAge">—</span></div>
+      <div class="info-row"><span class="k">Sexe</span><span class="v" id="mPatientSex">—</span></div>
+      <div class="info-row"><span class="k">Date naissance</span><span class="v" id="mPatientBD">—</span></div>
+    </div>
+
+    <div class="info-card">
+      <h3><i class="fas fa-stethoscope"></i> &nbsp;Étude</h3>
+      <div class="info-row"><span class="k">Date</span><span class="v" id="mStudyDate">—</span></div>
+      <div class="info-row"><span class="k">Modalité</span><span class="v" id="mModality">—</span></div>
+      <div class="info-row"><span class="k">Description</span><span class="v" id="mStudyDesc">—</span></div>
+      <div class="info-row"><span class="k">Partie du corps</span><span class="v" id="mBodyPart">—</span></div>
+      <div class="info-row"><span class="k">Institution</span><span class="v" id="mInstitution">—</span></div>
+    </div>
+
+    <div class="info-card">
+      <h3><i class="fas fa-image"></i> &nbsp;Image</h3>
+      <div class="info-row"><span class="k">Dimensions</span><span class="v" id="mDimensions">—</span></div>
+      <div class="info-row"><span class="k">Bits alloués</span><span class="v" id="mBits">—</span></div>
+      <div class="info-row"><span class="k">Épaisseur coupe</span><span class="v" id="mThickness">—</span></div>
+      <div class="info-row"><span class="k">Espacement pixels</span><span class="v" id="mSpacing">—</span></div>
+      <div class="info-row"><span class="k">Slice</span><span class="v" id="mSlice">—</span></div>
+    </div>
+
+    <div class="info-card">
+      <h3><i class="fas fa-keyboard"></i> &nbsp;Raccourcis</h3>
+      <div class="info-row"><span class="k">← →</span><span class="v">Slices</span></div>
+      <div class="info-row"><span class="k">F</span><span class="v">Ajuster écran</span></div>
+      <div class="info-row"><span class="k">R</span><span class="v">Reset vue</span></div>
+      <div class="info-row"><span class="k">I</span><span class="v">Inverser</span></div>
+      <div class="info-row"><span class="k">Molette</span><span class="v">Zoom</span></div>
+      <div class="info-row"><span class="k">Clic + glisser</span><span class="v">WW/WL</span></div>
+    </div>
+  </aside>
+</main>
+
+<div id="toast"></div>
+
+<script>
+  // ── Configure Cornerstone ──
+  cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+  cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+  cornerstoneWADOImageLoader.configure({
+    useWebWorkers: false
+  });
+
+  // ── State ──
+  const el = document.getElementById('dicomEl');
+  cornerstone.enable(el);
+
+  let loadedFiles = [];
+  let currentIndex = 0;
+  let isEnabled = false;
+
+  // ── Helper: get tag value ──
+  function tag(ds, tagStr, fallback = '—') {
+    try {
+      const el = ds.elements[tagStr];
+      if (!el) return fallback;
+      const val = ds.string(tagStr);
+      return val && val.trim() ? val.trim() : fallback;
+    } catch { return fallback; }
+  }
+
+  function formatDate(d) {
+    if (!d || d === '—') return '—';
+    if (d.length === 8) return `${d.slice(6,8)}/${d.slice(4,6)}/${d.slice(0,4)}`;
+    return d;
+  }
+
+  // ── Load files ──
+  async function loadFiles(files) {
+    const dcmFiles = Array.from(files);
+    if (!dcmFiles.length) return;
+
+    showLoader(true);
+    loadedFiles = [];
+
+    for (const f of dcmFiles) {
+      const url = cornerstoneWADOImageLoader.wadouri.fileManager.add(f);
+      loadedFiles.push({ name: f.name, url });
+    }
+
+    updateFileList();
+    document.getElementById('fileCount').textContent = `${loadedFiles.length} fichier(s)`;
+    document.getElementById('sliceNav').style.display = loadedFiles.length > 1 ? 'flex' : 'none';
+    currentIndex = 0;
+    await displayImage(0);
+    showLoader(false);
+  }
+
+  async function displayImage(index) {
+    if (!loadedFiles.length) return;
+    currentIndex = index;
+    const { url } = loadedFiles[index];
+
+    try {
+      showLoader(true);
+      const image = await cornerstone.loadAndCacheImage(url);
+      cornerstone.displayImage(el, image);
+      isEnabled = true;
+
+      // Reset viewport
+      const vp = cornerstone.getViewport(el);
+      if (vp) {
+        vp.voi.windowWidth = parseInt(document.getElementById('wwSlider').value);
+        vp.voi.windowCenter = parseInt(document.getElementById('wlSlider').value);
+        cornerstone.setViewport(el, vp);
+      }
+
+      document.getElementById('noImg').style.display = 'none';
+      updateOverlay(image);
+      updateMetadata(image);
+      updateSliceInfo();
+      updateFileList();
+      setStatus(`Image ${index + 1}/${loadedFiles.length} — ${loadedFiles[index].name}`);
+      toast(`✓ ${loadedFiles[index].name} chargé`);
+    } catch (e) {
+      toast('Erreur de chargement : ' + e.message, true);
+    } finally {
+      showLoader(false);
+    }
+  }
+
+  function updateOverlay(image) {
+    const ds = image.data;
+    const tl = document.getElementById('overlayTL');
+    const br = document.getElementById('overlayBR');
+    tl.style.display = 'block';
+    br.style.display = 'block';
+    tl.innerHTML = [
+      tag(ds, 'x00100010'),       // Patient name
+      `${image.width} × ${image.height}`,
+      tag(ds, 'x00080060'),       // Modality
+    ].filter(v => v && v !== '—').join('<br/>');
+    br.innerHTML = [
+      formatDate(tag(ds, 'x00080020')),
+      tag(ds, 'x00081030'),
+    ].filter(v => v && v !== '—').join('<br/>');
+  }
+
+  function updateMetadata(image) {
+    const ds = image.data;
+    const set = (id, val) => document.getElementById(id).textContent = val;
+    set('mPatientName', tag(ds, 'x00100010'));
+    set('mPatientID',   tag(ds, 'x00100020'));
+    set('mPatientAge',  tag(ds, 'x00101010'));
+    set('mPatientSex',  tag(ds, 'x00100040'));
+    set('mPatientBD',   formatDate(tag(ds, 'x00100030')));
+    set('mStudyDate',   formatDate(tag(ds, 'x00080020')));
+    set('mModality',    tag(ds, 'x00080060'));
+    set('mStudyDesc',   tag(ds, 'x00081030'));
+    set('mBodyPart',    tag(ds, 'x00180015'));
+    set('mInstitution', tag(ds, 'x00080080'));
+    set('mDimensions',  `${image.width} × ${image.height}`);
+    set('mBits',        tag(ds, 'x00280100'));
+    set('mThickness',   tag(ds, 'x00500004') !== '—' ? tag(ds, 'x00500004') + ' mm' : tag(ds, 'x00500004'));
+    set('mSpacing',     tag(ds, 'x00280030'));
+  }
+
+  function updateSliceInfo() {
+    document.getElementById('mSlice').textContent = `${currentIndex + 1} / ${loadedFiles.length}`;
+    document.getElementById('btnPrev').disabled = currentIndex === 0;
+    document.getElementById('btnNext').disabled = currentIndex === loadedFiles.length - 1;
+  }
+
+  function updateFileList() {
+    const ul = document.getElementById('fileList');
+    if (!loadedFiles.length) {
+      ul.innerHTML = '<li class="empty">Aucun fichier chargé</li>';
+      return;
+    }
+    ul.innerHTML = loadedFiles.map((f, i) =>
+      `<li class="${i === currentIndex ? 'active' : ''}" onclick="displayImage(${i})">${f.name}</li>`
+    ).join('');
+  }
+
+  // ── Navigation ──
+  function prevSlice() { if (currentIndex > 0) displayImage(currentIndex - 1); }
+  function nextSlice() { if (currentIndex < loadedFiles.length - 1) displayImage(currentIndex + 1); }
+
+  // ── Image controls ──
+  function onSlider() {
+    if (!isEnabled) return;
+    const vp = cornerstone.getViewport(el);
+    if (!vp) return;
+    vp.voi.windowWidth = parseInt(document.getElementById('wwSlider').value);
+    vp.voi.windowCenter = parseInt(document.getElementById('wlSlider').value);
+    document.getElementById('wwVal').textContent = vp.voi.windowWidth;
+    document.getElementById('wlVal').textContent = vp.voi.windowCenter;
+    cornerstone.setViewport(el, vp);
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  }
+
+  function onZoomSlider() {
+    if (!isEnabled) return;
+    const vp = cornerstone.getViewport(el);
+    if (!vp) return;
+    const z = parseInt(document.getElementById('zoomSlider').value) / 100;
+    vp.scale = z;
+    document.getElementById('zoomVal').textContent = document.getElementById('zoomSlider').value + '%';
+    cornerstone.setViewport(el, vp);
+  }
+
+  function applyPreset(ww, wl) {
+    if (!isEnabled) return;
+    const vp = cornerstone.getViewport(el);
+    if (!vp) return;
+    vp.voi.windowWidth = ww;
+    vp.voi.windowCenter = wl;
+    document.getElementById('wwSlider').value = ww;
+    document.getElementById('wlSlider').value = wl;
+    document.getElementById('wwVal').textContent = ww;
+    document.getElementById('wlVal').textContent = wl;
+    cornerstone.setViewport(el, vp);
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+  }
+
+  function invertImage() {
+    if (!isEnabled) return;
+    const vp = cornerstone.getViewport(el);
+    if (!vp) return;
+    vp.invert = !vp.invert;
+    cornerstone.setViewport(el, vp);
+  }
+
+  function fitToScreen() {
+    if (!isEnabled) return;
+    cornerstone.fitToWindow(el);
+    document.getElementById('zoomSlider').value = 100;
+    document.getElementById('zoomVal').textContent = '100%';
+  }
+
+  function resetView() {
+    if (!isEnabled) return;
+    cornerstone.reset(el);
+    document.getElementById('wwSlider').value = 400;
+    document.getElementById('wlSlider').value = 40;
+    document.getElementById('wwVal').textContent = 400;
+    document.getElementById('wlVal').textContent = 40;
+    document.getElementById('zoomSlider').value = 100;
+    document.getElementById('zoomVal').textContent = '100%';
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  }
+
+  function clearAll() {
+    loadedFiles = [];
+    currentIndex = 0;
+    isEnabled = false;
+    updateFileList();
+    document.getElementById('fileCount').textContent = 'Aucun fichier';
+    document.getElementById('noImg').style.display = 'flex';
+    document.getElementById('overlayTL').style.display = 'none';
+    document.getElementById('overlayBR').style.display = 'none';
+    document.getElementById('sliceNav').style.display = 'none';
+    document.getElementById('mSlice').textContent = '—';
+    setStatus('Prêt');
+    ['mPatientName','mPatientID','mPatientAge','mPatientSex','mPatientBD',
+     'mStudyDate','mModality','mStudyDesc','mBodyPart','mInstitution',
+     'mDimensions','mBits','mThickness','mSpacing'].forEach(id => {
+       document.getElementById(id).textContent = '—';
+    });
+  }
+
+  // ── Mouse wheel zoom ──
+  el.addEventListener('wheel', e => {
+    if (!isEnabled) return;
+    e.preventDefault();
+    const vp = cornerstone.getViewport(el);
+    if (!vp) return;
+    vp.scale += e.deltaY < 0 ? 0.1 : -0.1;
+    vp.scale = Math.max(0.1, Math.min(vp.scale, 8));
+    cornerstone.setViewport(el, vp);
+    const pct = Math.round(vp.scale * 100);
+    document.getElementById('zoomSlider').value = Math.min(400, Math.max(25, pct));
+    document.getElementById('zoomVal').textContent = pct + '%';
+  }, { passive: false });
+
+  // ── Cornerstone mouse tools (WW/WL drag) ──
+  el.addEventListener('mousedown', e => {
+    if (!isEnabled || e.button !== 0) return;
+    const startX = e.clientX, startY = e.clientY;
+    const vp = cornerstone.getViewport(el);
+    if (!vp) return;
+    const startWW = vp.voi.windowWidth, startWL = vp.voi.windowCenter;
+
+    function onMove(ev) {
+      const dx = ev.clientX - startX, dy = ev.clientY - startY;
+      const vp2 = cornerstone.getViewport(el);
+      if (!vp2) return;
+      vp2.voi.windowWidth = Math.max(1, startWW + dx * 4);
+      vp2.voi.windowCenter = startWL + dy * 2;
+      document.getElementById('wwSlider').value = Math.min(4000, vp2.voi.windowWidth);
+      document.getElementById('wlSlider').value = Math.min(3000, Math.max(-1000, vp2.voi.windowCenter));
+      document.getElementById('wwVal').textContent = Math.round(vp2.voi.windowWidth);
+      document.getElementById('wlVal').textContent = Math.round(vp2.voi.windowCenter);
+      cornerstone.setViewport(el, vp2);
+    }
+
+    function onUp() {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  });
+
+  // ── Drag & drop on viewer ──
+  const viewerWrap = document.getElementById('viewerWrap');
+  const dropOverlay = document.getElementById('dropOverlay');
+
+  viewerWrap.addEventListener('dragover', e => { e.preventDefault(); dropOverlay.classList.add('active'); });
+  viewerWrap.addEventListener('dragleave', e => { if (!viewerWrap.contains(e.relatedTarget)) dropOverlay.classList.remove('active'); });
+  viewerWrap.addEventListener('drop', async e => {
+    e.preventDefault();
+    dropOverlay.classList.remove('active');
+    if (e.dataTransfer.files.length) await loadFiles(e.dataTransfer.files);
+  });
+
+  // ── Drop zone (sidebar) ──
+  const dz = document.getElementById('dropZone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+  dz.addEventListener('drop', async e => {
+    e.preventDefault();
+    dz.classList.remove('over');
+    if (e.dataTransfer.files.length) await loadFiles(e.dataTransfer.files);
+  });
+
+  // ── File inputs ──
+  document.getElementById('fileInput').addEventListener('change', function() {
+    if (this.files.length) loadFiles(this.files);
+    this.value = '';
+  });
+  document.getElementById('fileInput2').addEventListener('change', function() {
+    if (this.files.length) loadFiles(this.files);
+    this.value = '';
+  });
+
+  // ── Keyboard shortcuts ──
+  window.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    switch (e.key.toLowerCase()) {
+      case 'arrowleft':
+      case 'arrowup':   e.preventDefault(); prevSlice(); break;
+      case 'arrowright':
+      case 'arrowdown': e.preventDefault(); nextSlice(); break;
+      case 'f': e.preventDefault(); fitToScreen(); break;
+      case 'r': e.preventDefault(); resetView(); break;
+      case 'i': e.preventDefault(); invertImage(); break;
+    }
+  });
+
+  // ── Utilities ──
+  function showLoader(v) { document.getElementById('loader').classList.toggle('active', v); }
+  function setStatus(msg) { document.getElementById('statusBar').textContent = msg; }
+
+  let toastTimer;
+  function toast(msg, isError = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show' + (isError ? ' error' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.className = '', 3000);
+  }
+</script>
+</body>
+</html>

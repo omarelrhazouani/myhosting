@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YSF-Viewer DICOM | Blue Elite</title>
+    
+    <!-- Dependencies -->
+    <script src="https://unpkg.com/dicom-parser@1.8.3/dist/dicomParser.min.js"></script>
+    <script src="https://unpkg.com/cornerstone-core@2.3.0/dist/cornerstone.min.js"></script>
+    <script src="https://unpkg.com/cornerstone-wado-image-loader@3.1.2/dist/cornerstoneWADOImageLoader.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --cobalt-blue: #007bff;
+            --deep-navy: #0a1118;
+            --panel-bg: #111a22;
+            --border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f8f9fa;
+            --text-secondary: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--deep-navy);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, sans-serif;
+            height: 100vh; overflow: hidden;
+            display: flex;
+        }
+
+        /* --- Sidebar: Clean & Functional --- */
+        aside {
+            width: 300px;
+            background: var(--panel-bg);
+            border-right: 1px solid var(--border);
+            display: flex; flex-direction: column;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .brand-title {
+            font-weight: 700; font-size: 1.4rem; color: var(--cobalt-blue);
+            margin-bottom: 30px; letter-spacing: -0.5px;
+        }
+
+        .group-label {
+            font-size: 11px; font-weight: 600; text-transform: uppercase;
+            color: var(--text-secondary); margin-bottom: 12px; display: block;
+        }
+
+        /* --- Stylish Controls --- */
+        .btn {
+            background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border);
+            color: var(--text-primary); padding: 12px; border-radius: 6px;
+            cursor: pointer; width: 100%; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            margin-bottom: 10px; font-size: 14px;
+        }
+        .btn:hover { background: var(--cobalt-blue); border-color: var(--cobalt-blue); }
+
+        .control-panel {
+            background: rgba(0, 0, 0, 0.2); padding: 16px;
+            border-radius: 8px; margin-bottom: 20px;
+        }
+
+        input[type=range] {
+            width: 100%; height: 4px; accent-color: var(--cobalt-blue);
+            margin: 12px 0; cursor: pointer;
+        }
+
+        /* --- Viewer Main Space --- */
+        main {
+            flex: 1; position: relative; background: #000;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #dicomCanvas { width: 100%; height: 100%; }
+
+        /* --- Minimalist HUD --- */
+        .hud {
+            position: absolute; pointer-events: none;
+            padding: 20px; font-size: 12px; font-weight: 300;
+        }
+        .hud-tl { top: 0; left: 0; color: var(--cobalt-blue); }
+        .hud-tr { top: 0; right: 0; text-align: right; color: var(--text-secondary); }
+        .hud-bl { bottom: 0; left: 0; color: var(--text-secondary); }
+
+        .grid-options {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+        }
+
+        .btn-small { padding: 8px; font-size: 11px; }
+
+        /* --- Tooltip for shortcuts --- */
+        .shortcuts {
+            margin-top: auto; font-size: 11px; color: var(--text-secondary);
+            padding: 10px; border-top: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+
+<aside>
+    <div class="brand-title">YSF-Viewer <span style="font-weight: 300; color: #fff;">PRO</span></div>
+
+    <div class="group-label">Input Management</div>
+    <button class="btn" onclick="document.getElementById('fIn').click()"><i class="fas fa-file-medical"></i> Select Files</button>
+    <button class="btn" onclick="document.getElementById('dIn').click()"><i class="fas fa-folder-open"></i> Study Folder</button>
+    <input type="file" id="fIn" multiple style="display:none">
+    <input type="file" id="dIn" webkitdirectory directory multiple style="display:none">
+
+    <div class="group-label" style="margin-top:20px">Sequence Selection</div>
+    <div class="control-panel">
+        <div style="display:flex; justify-content:space-between; font-size:12px;">
+            <span>Slice Index</span>
+            <span id="sliceNum" style="color:var(--cobalt-blue)">0 / 0</span>
+        </div>
+        <input type="range" id="sliceSlider" min="0" max="0" value="0">
+    </div>
+
+    <div class="group-label">Diagnosis Presets</div>
+    <div class="grid-options">
+        <button class="btn btn-small" onclick="apply('lung')">Lung</button>
+        <button class="btn btn-small" onclick="apply('bone')">Bone</button>
+        <button class="btn btn-small" onclick="apply('mediastinum')">Mediastinum</button>
+        <button class="btn btn-small" onclick="apply('brain')">Brain</button>
+        <button class="btn btn-small" onclick="apply('soft')">Soft Tissue</button>
+        <button class="btn btn-small" onclick="apply('default')">Standard</button>
+    </div>
+
+    <div class="group-label" style="margin-top:20px">Imaging Parameters</div>
+    <div class="control-panel">
+        <label style="font-size:11px">Window Width</label>
+        <input type="range" id="ww" min="1" max="2500" value="400">
+        <label style="font-size:11px">Window Level</label>
+        <input type="range" id="wl" min="-1000" max="1000" value="40">
+    </div>
+
+    <button class="btn" onclick="reset()"><i class="fas fa-sync-alt"></i> Reset Viewport</button>
+
+    <div class="shortcuts">
+        <b>Shortcuts:</b><br>
+        • Left Click: Pan Image<br>
+        • Right Click: Adjust Contrast<br>
+        • Mouse Wheel: Smooth Zoom
+    </div>
+</aside>
+
+<main>
+    <div id="dicomCanvas"></div>
+    
+    <div class="hud hud-tl">
+        <b id="pName">PATIENT: WAITING...</b><br>
+        <span id="pId">ID: NONE</span>
+    </div>
+
+    <div class="hud hud-tr">
+        <div id="zoomText">ZOOM: 100%</div>
+        <div id="wwlText">W: 400 | L: 40</div>
+    </div>
+
+    <div class="hud hud-bl">
+        DICOM ENGINE v3.0 | HIGH PRECISION MODE
+    </div>
+</main>
+
+<script>
+    // Initialize Core Engine
+    cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+    cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+    const canvas = document.getElementById('dicomCanvas');
+    cornerstone.enable(canvas);
+
+    let imageIds = [];
+    let currentIdx = 0;
+
+    // Loader Function[cite: 2]
+    function loadData(files) {
+        if (!files.length) return;
+        
+        imageIds = Array.from(files).map(f => cornerstoneWADOImageLoader.wadouri.fileManager.add(f));
+        imageIds.sort();
+
+        const slider = document.getElementById('sliceSlider');
+        slider.max = imageIds.length - 1;
+        slider.value = 0;
+        
+        render(0);
+    }
+
+    async function render(idx) {
+        if (idx < 0 || idx >= imageIds.length) return;
+        currentIdx = idx;
+        try {
+            const img = await cornerstone.loadImage(imageIds[idx]);
+            const vp = cornerstone.getDefaultViewportForImage(canvas, img);
+            
+            // Sync with sliders
+            vp.voi.windowWidth = parseFloat(document.getElementById('ww').value);
+            vp.voi.windowCenter = parseFloat(document.getElementById('wl').value);
+            
+            cornerstone.displayImage(canvas, img, vp);
+            
+            // Update HUD
+            document.getElementById('sliceNum').innerText = `${idx + 1} / ${imageIds.length}`;
+            document.getElementById('pName').innerText = `PATIENT: ${img.data.string('x00100010') || 'ANONYMOUS'}`;
+            document.getElementById('pId').innerText = `ID: ${img.data.string('x00100020') || 'N/A'}`;
+            updateHUD();
+        } catch(e) { console.error(e); }
+    }
+
+    function updateHUD() {
+        const vp = cornerstone.getViewport(canvas);
+        if(!vp) return;
+        document.getElementById('zoomText').innerText = `ZOOM: ${Math.round(vp.scale * 100)}%`;
+        document.getElementById('wwlText').innerText = `W: ${Math.round(vp.voi.windowWidth)} | L: ${Math.round(vp.voi.windowCenter)}`;
+    }
+
+    function apply(type) {
+        const presets = {
+            lung: [1500, -600],
+            bone: [2000, 500],
+            mediastinum: [350, 50],
+            brain: [80, 40],
+            soft: [400, 40],
+            default: [400, 40]
+        };
+        const [w, l] = presets[type];
+        document.getElementById('ww').value = w;
+        document.getElementById('wl').value = l;
+        const vp = cornerstone.getViewport(canvas);
+        if(vp) {
+            vp.voi.windowWidth = w;
+            vp.voi.windowCenter = l;
+            cornerstone.setViewport(canvas, vp);
+            updateHUD();
+        }
+    }
+
+    function reset() {
+        cornerstone.reset(canvas);
+        updateHUD();
+    }
+
+    // Bindings[cite: 2]
+    document.getElementById('fIn').addEventListener('change', e => loadData(e.target.files));
+    document.getElementById('dIn').addEventListener('change', e => loadData(e.target.files));
+    document.getElementById('sliceSlider').addEventListener('input', e => render(parseInt(e.target.value)));
+    document.getElementById('ww').addEventListener('input', updateViewport);
+    document.getElementById('wl').addEventListener('input', updateViewport);
+
+    function updateViewport() {
+        const vp = cornerstone.getViewport(canvas);
+        if(!vp) return;
+        vp.voi.windowWidth = parseFloat(document.getElementById('ww').value);
+        vp.voi.windowCenter = parseFloat(document.getElementById('wl').value);
+        cornerstone.setViewport(canvas, vp);
+        updateHUD();
+    }
+
+    // Interaction Logic
+    canvas.addEventListener('mousedown', (e) => {
+        const last = { x: e.pageX, y: e.pageY };
+        const move = (m) => {
+            const vp = cornerstone.getViewport(canvas);
+            if (e.button === 0) { // Pan
+                vp.translation.x += (m.pageX - last.x) / vp.scale;
+                vp.translation.y += (m.pageY - last.y) / vp.scale;
+            } else if (e.button === 2) { // Windowing
+                vp.voi.windowWidth += (m.pageX - last.x);
+                vp.voi.windowCenter += (m.pageY - last.y);
+                document.getElementById('ww').value = vp.voi.windowWidth;
+                document.getElementById('wl').value = vp.voi.windowCenter;
+            }
+            last.x = m.pageX; last.y = m.pageY;
+            cornerstone.setViewport(canvas, vp);
+            updateHUD();
+        };
+        const up = () => document.removeEventListener('mousemove', move);
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const vp = cornerstone.getViewport(canvas);
+        vp.scale += (e.deltaY < 0 ? 0.1 : -0.1);
+        vp.scale = Math.max(0.1, vp.scale);
+        cornerstone.setViewport(canvas, vp);
+        updateHUD();
+    });
+
+    canvas.oncontextmenu = e => e.preventDefault();
+</script>
+</body>
+</html>

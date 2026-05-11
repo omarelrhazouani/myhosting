@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>MediView DICOM | Visualisation médicale & radioprotection</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://unpkg.com/cornerstone-core@2.6.1/dist/cornerstone.min.js"></script>
+    <script src="https://unpkg.com/dicom-parser@1.8.21/dist/dicomParser.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #eef2f7;
+            height: 100vh;
+            overflow: hidden;
+            color: #1a2c3e;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #0b2b3b 0%, #123e52 100%);
+            color: white;
+            padding: 0 2rem;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 2rem;
+            color: #4bc0e6;
+        }
+
+        .logo-text h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+        }
+
+        .logo-text p {
+            font-size: 0.7rem;
+            opacity: 0.8;
+            font-weight: 400;
+        }
+
+        .student-badge {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(4px);
+            padding: 6px 20px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .student-badge i {
+            margin-right: 6px;
+            color: #ffd966;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .control-panel {
+            width: 320px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.05);
+            overflow-y: auto;
+            padding: 20px;
+            border: 1px solid rgba(75, 192, 230, 0.2);
+        }
+
+        .section-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #2c7da0;
+            margin: 20px 0 12px 0;
+            border-left: 4px solid #2c7da0;
+            padding-left: 12px;
+        }
+
+        .section-title:first-of-type {
+            margin-top: 0;
+        }
+
+        .upload-area {
+            border: 2px dashed #bdd3e6;
+            border-radius: 20px;
+            padding: 20px 12px;
+            text-align: center;
+            background: #f9fdfe;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #2c7da0;
+            background: #eef7fc;
+        }
+
+        .upload-area i {
+            font-size: 2.5rem;
+            color: #2c7da0;
+            margin-bottom: 8px;
+        }
+
+        .upload-area p {
+            font-size: 0.85rem;
+            color: #2c3e50;
+        }
+
+        .file-info {
+            margin-top: 12px;
+            font-size: 0.75rem;
+            background: #eef2f7;
+            padding: 8px;
+            border-radius: 12px;
+            word-break: break-all;
+        }
+
+        .tools-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 15px 0;
+        }
+
+        .tool-btn {
+            background: #f0f4f8;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 40px;
+            font-weight: 500;
+            font-size: 0.8rem;
+            color: #1f5068;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tool-btn:hover {
+            background: #d4e4f0;
+            transform: translateY(-2px);
+        }
+
+        .tool-btn.active {
+            background: #1f6e8c;
+            color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .slider-container {
+            margin: 15px 0;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            margin-bottom: 6px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: #1f6e8c;
+        }
+
+        .metadata-panel {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 12px;
+            font-size: 0.7rem;
+            font-family: monospace;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 12px;
+            border: 1px solid #e2edf2;
+        }
+
+        .viewer-area {
+            flex: 1;
+            background: #1a2a32;
+            border-radius: 28px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .toolbar-mini {
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(12px);
+            padding: 10px 20px;
+            display: flex;
+            gap: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .mini-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 12px;
+            transition: 0.2s;
+        }
+
+        .mini-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        #dicomViewport {
+            flex: 1;
+            position: relative;
+            background: #0f1a1f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .canvas-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            cursor: grab;
+        }
+
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        .status-msg {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: #aaffdd;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            pointer-events: none;
+            z-index: 20;
+            font-family: monospace;
+        }
+
+        .radiation-badge {
+            background: rgba(50,80,100,0.8);
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 0.7rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            backdrop-filter: blur(4px);
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2c7da0;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="navbar">
+        <div class="logo-area">
+            <i class="fas fa-heartbeat logo-icon"></i>
+            <div class="logo-text">
+                <h1>MediView DICOM</h1>
+                <p>Visualisation diagnostique & radioprotection</p>
+            </div>
+        </div>
+        <div class="student-badge">
+            <i class="fas fa-shield-alt"></i> Khaoula Banour – Master en Radioprotection
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="control-panel">
+            <div class="section-title"><i class="fas fa-upload"></i> Importer DICOM</div>
+            <div id="uploadArea" class="upload-area">
+                <i class="fas fa-file-medical"></i>
+                <p>Glissez / Cliquez pour charger un fichier DICOM</p>
+                <input type="file" id="dicomInput" accept=".dcm, .dic" style="display: none;" />
+                <div id="fileInfo" class="file-info">Aucun fichier chargé</div>
+            </div>
+
+            <div class="section-title"><i class="fas fa-sliders-h"></i> Réglages image</div>
+            <div class="slider-container">
+                <div class="slider-label"><span>🌓 Niveau (Window Level)</span><span id="wlVal">400</span></div>
+                <input type="range" id="windowLevel" min="-1000" max="2000" value="400" step="1">
+            </div>
+            <div class="slider-container">
+                <div class="slider-label"><span>🖥️ Largeur (Window Width)</span><span id="wwVal">400</span></div>
+                <input type="range" id="windowWidth" min="1" max="3000" value="400" step="1">
+            </div>
+            <div class="slider-container">
+                <div class="slider-label"><span>🔍 Zoom</span><span id="zoomVal">100</span></div>
+                <input type="range" id="zoomSlider" min="50" max="300" value="100" step="5">
+            </div>
+
+            <div class="section-title"><i class="fas fa-tools"></i> Outils interactifs</div>
+            <div class="tools-grid">
+                <button id="resetViewBtn" class="tool-btn"><i class="fas fa-sync-alt"></i> Reset vue</button>
+                <button id="invertBtn" class="tool-btn"><i class="fas fa-adjust"></i> Inverser</button>
+            </div>
+
+            <div class="section-title"><i class="fas fa-info-circle"></i> Métadonnées DICOM</div>
+            <div id="metadataDisplay" class="metadata-panel">
+                <span style="color:#2c7da0;">Aucune image chargée</span>
+            </div>
+            <div class="radiation-badge">
+                <i class="fas fa-radiation-alt"></i> Optimisation dose & radioprotection intégrée
+            </div>
+        </div>
+
+        <div class="viewer-area">
+            <div class="toolbar-mini">
+                <button id="fullscreenBtn" class="mini-btn" title="Plein écran"><i class="fas fa-expand"></i></button>
+                <button id="rotateLeftBtn" class="mini-btn" title="Rotation -90°"><i class="fas fa-undo-alt"></i></button>
+                <button id="rotateRightBtn" class="mini-btn" title="Rotation +90°"><i class="fas fa-redo-alt"></i></button>
+                <span style="flex:1"></span>
+                <span style="font-size:0.7rem; color:#ccc;"><i class="fas fa-radiation"></i> Radioprotection | DICOM Viewer</span>
+            </div>
+            <div id="dicomViewport">
+                <div class="canvas-container" id="canvasContainer">
+                    <canvas id="dicomCanvas"></canvas>
+                </div>
+                <div id="statusMsg" class="status-msg">✅ Prêt à charger un fichier DICOM</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Variables globales
+    let currentPixelData = null;
+    let currentRows = 0;
+    let currentCols = 0;
+    let currentMin = 0;
+    let currentMax = 0;
+    let isInverted = false;
+    let currentRotation = 0;
+    let currentZoom = 1;
+    let currentTranslateX = 0;
+    let currentTranslateY = 0;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let lastTranslateX = 0;
+    let lastTranslateY = 0;
+    
+    // Éléments DOM
+    const canvas = document.getElementById('dicomCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvasContainer');
+    const dicomInput = document.getElementById('dicomInput');
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInfoDiv = document.getElementById('fileInfo');
+    const windowLevelSlider = document.getElementById('windowLevel');
+    const windowWidthSlider = document.getElementById('windowWidth');
+    const zoomSlider = document.getElementById('zoomSlider');
+    const wlValSpan = document.getElementById('wlVal');
+    const wwValSpan = document.getElementById('wwVal');
+    const zoomValSpan = document.getElementById('zoomVal');
+    const metadataDisplay = document.getElementById('metadataDisplay');
+    const statusMsgDiv = document.getElementById('statusMsg');
+    const resetViewBtn = document.getElementById('resetViewBtn');
+    const invertBtn = document.getElementById('invertBtn');
+    const rotateLeft = document.getElementById('rotateLeftBtn');
+    const rotateRight = document.getElementById('rotateRightBtn');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    
+    // Helper pour afficher le statut
+    function setStatus(msg, isError = false) {
+        statusMsgDiv.innerHTML = isError ? `⚠️ ${msg}` : `✅ ${msg}`;
+        statusMsgDiv.style.background = isError ? 'rgba(200,60,50,0.85)' : 'rgba(0,0,0,0.7)';
+        if (!isError) {
+            setTimeout(() => {
+                if (statusMsgDiv.innerHTML.includes(msg)) {
+                    statusMsgDiv.innerHTML = "✅ Prêt";
+                }
+            }, 3000);
+        }
+    }
+    
+    // Appliquer le fenêtrage (window level)
+    function applyWindowing(pixelValue) {
+        const wl = parseInt(windowLevelSlider.value);
+        const ww = parseInt(windowWidthSlider.value);
+        
+        let min = wl - ww / 2;
+        let max = wl + ww / 2;
+        
+        let value = pixelValue;
+        if (value < min) value = min;
+        if (value > max) value = max;
+        
+        let normalized = (value - min) / (max - min);
+        if (isInverted) normalized = 1 - normalized;
+        
+        return Math.floor(normalized * 255);
+    }
+    
+    // Rendre l'image sur le canvas avec gestion rotation/zoom/pan
+    function renderImage() {
+        if (!currentPixelData) return;
+        
+        const wl = parseInt(windowLevelSlider.value);
+        const ww = parseInt(windowWidthSlider.value);
+        
+        wlValSpan.innerText = wl;
+        wwValSpan.innerText = ww;
+        zoomValSpan.innerText = zoomSlider.value;
+        
+        // Créer l'image rendue en niveaux de gris
+        const imageData = ctx.createImageData(currentCols, currentRows);
+        
+        for (let i = 0; i < currentPixelData.length; i++) {
+            const intensity = applyWindowing(currentPixelData[i]);
+            imageData.data[i * 4] = intensity;     // R
+            imageData.data[i * 4 + 1] = intensity; // G
+            imageData.data[i * 4 + 2] = intensity; // B
+            imageData.data[i * 4 + 3] = 255;       // A
+        }
+        
+        // Créer un canvas temporaire pour la rotation
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = currentCols;
+        tempCanvas.height = currentRows;
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Appliquer la rotation
+        const rad = (currentRotation * Math.PI) / 180;
+        const cos = Math.abs(Math.cos(rad));
+        const sin = Math.abs(Math.sin(rad));
+        const rotatedWidth = Math.floor(currentCols * cos + currentRows * sin);
+        const rotatedHeight = Math.floor(currentCols * sin + currentRows * cos);
+        
+        const rotatedCanvas = document.createElement('canvas');
+        rotatedCanvas.width = rotatedWidth;
+        rotatedCanvas.height = rotatedHeight;
+        const rotatedCtx = rotatedCanvas.getContext('2d');
+        
+        rotatedCtx.translate(rotatedWidth / 2, rotatedHeight / 2);
+        rotatedCtx.rotate(rad);
+        rotatedCtx.drawImage(tempCanvas, -currentCols / 2, -currentRows / 2);
+        
+        // Appliquer le zoom et le pan
+        canvas.width = rotatedWidth * currentZoom;
+        canvas.height = rotatedHeight * currentZoom;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(currentTranslateX, currentTranslateY);
+        ctx.drawImage(rotatedCanvas, 0, 0, rotatedWidth * currentZoom, rotatedHeight * currentZoom);
+        ctx.restore();
+    }
+    
+    // Réinitialiser la vue
+    function resetView() {
+        if (!currentPixelData) return;
+        currentZoom = 1;
+        currentTranslateX = 0;
+        currentTranslateY = 0;
+        currentRotation = 0;
+        isInverted = false;
+        zoomSlider.value = 100;
+        invertBtn.classList.remove('active');
+        // Garder les réglages de fenêtrage mais ne pas écraser métriques 
+        renderImage();
+        setStatus("Vue réinitialisée (zoom/pan/rotation)");
+    }
+    
+    // Gestion du pan
+    function onMouseDown(e) {
+        if (!currentPixelData) return;
+        isDragging = true;
+        dragStartX = e.clientX - currentTranslateX;
+        dragStartY = e.clientY - currentTranslateY;
+        canvas.style.cursor = 'grabbing';
+    }
+    
+    function onMouseMove(e) {
+        if (!isDragging || !currentPixelData) return;
+        currentTranslateX = e.clientX - dragStartX;
+        currentTranslateY = e.clientY - dragStartY;
+        renderImage();
+    }
+    
+    function onMouseUp() {
+        isDragging = false;
+        canvas.style.cursor = 'grab';
+    }
+    
+    // Zoom avec molette
+    function onWheel(e) {
+        if (!currentPixelData) return;
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.08 : 0.08;
+        let newZoom = currentZoom + delta;
+        newZoom = Math.max(0.4, Math.min(4, newZoom));
+        currentZoom = newZoom;
+        zoomSlider.value = Math.round(currentZoom * 100);
+        zoomValSpan.innerText = Math.round(currentZoom * 100);
+        renderImage();
+    }
+    
+    // Extraire et afficher métadonnées + mention radioprotection
+    function displayMetadata(dataset) {
+        if (!dataset) {
+            metadataDisplay.innerHTML = '<span style="color:#2c7da0;">Aucune métadonnée</span>';
+            return;
+        }
+        
+        const patientName = dataset.string('x00100010') || 'Anonyme';
+        const patientID = dataset.string('x00100020') || 'N/A';
+        const modality = dataset.string('x00080060') || 'Inconnu';
+        const studyDate = dataset.string('x00080020') || 'N/D';
+        const studyDesc = dataset.string('x00081030') || 'Non spécifié';
+        const seriesDesc = dataset.string('x0008103e') || 'Série standard';
+        const rows = dataset.uint16('x00280010');
+        const cols = dataset.uint16('x00280011');
+        let windowCenter = dataset.string('x00281050');
+        let windowWidthOrig = dataset.string('x00281051');
+        const manufacturer = dataset.string('x00080070') || 'Inconnu';
+        const bitsAllocated = dataset.uint16('x00280100') || 16;
+        const exposure = dataset.string('x00181152') || 'Non renseignée'; // Exposition / mAs
+        const kvp = dataset.string('x00180060') || 'N/D';
+        
+        let html = `<div><i class="fas fa-user-md"></i> <strong>Patient:</strong> ${patientName} (${patientID})</div>`;
+        html += `<div><i class="fas fa-camera"></i> <strong>Modalité:</strong> ${modality}</div>`;
+        html += `<div><i class="far fa-calendar-alt"></i> <strong>Date étude:</strong> ${studyDate}</div>`;
+        html += `<div><i class="fas fa-flask"></i> <strong>Étude:</strong> ${studyDesc}</div>`;
+        html += `<div><i class="fas fa-layer-group"></i> <strong>Série:</strong> ${seriesDesc}</div>`;
+        if (rows && cols) html += `<div><i class="fas fa-expand"></i> <strong>Taille:</strong> ${cols} x ${rows} px</div>`;
+        html += `<div><i class="fas fa-microchip"></i> <strong>Bits alloués:</strong> ${bitsAllocated}</div>`;
+        if (windowCenter && windowWidthOrig) html += `<div><i class="fas fa-chart-line"></i> <strong>Fenêtrage natif:</strong> WC=${windowCenter} / WW=${windowWidthOrig}</div>`;
+        html += `<div><i class="fas fa-microchip"></i> <strong>Constructeur:</strong> ${manufacturer}</div>`;
+        
+        // ajout paramètres de dose pour radioprotection
+        if (modality === 'CT' || modality === 'DX' || modality === 'MG') {
+            html += `<div style="border-top:1px solid #cbdde6; margin-top:6px; padding-top:5px;"><i class="fas fa-radiation-alt" style="color:#d9534f;"></i> <strong>Paramètres d'exposition:</strong> `;
+            if (kvp !== 'N/D') html += `KVp: ${kvp} | `;
+            if (exposure !== 'Non renseignée') html += `mAs: ${exposure} `;
+            else html += `DAP / Dose non spécifiée dans les tags standard, optimisation recommandée.`;
+            html += `</div>`;
+        } else {
+            html += `<div style="border-top:1px solid #cbdde6; margin-top:6px; padding-top:5px;"><i class="fas fa-shield-alt"></i> <strong>Radioprotection:</strong> Principe ALARA — réglages de fenêtrage optimisés pour diagnostic.</div>`;
+        }
+        
+        metadataDisplay.innerHTML = html;
+    }
+    
+    // Fonction principale chargement DICOM
+    function loadDicomFile(file) {
+        if (!file) {
+            setStatus("Aucun fichier sélectionné", true);
+            return;
+        }
+        
+        setStatus(`Chargement de ${file.name}...`);
+        
+        const fileReader = new FileReader();
+        
+        fileReader.onload = function(e) {
+            const arrayBuffer = e.target.result;
+            
+            try {
+                const byteArray = new Uint8Array(arrayBuffer);
+                const dataset = dicomParser.parseDicom(byteArray);
+                
+                const pixelDataElement = dataset.elements.x7fe00010;
+                if (!pixelDataElement) {
+                    setStatus("Ce fichier DICOM ne contient pas de données pixel", true);
+                    return;
+                }
+                
+                currentRows = dataset.uint16('x00280010');
+                currentCols = dataset.uint16('x00280011');
+                const bitsAllocated = dataset.uint16('x00280100') || 16;
+                
+                if (!currentRows || !currentCols) {
+                    setStatus("Dimensions de l'image invalides", true);
+                    return;
+                }
+                
+                const pixelData = new Uint16Array(arrayBuffer, pixelDataElement.dataOffset, pixelDataElement.length / 2);
+                if (pixelData.length < currentRows * currentCols) {
+                    setStatus("Données pixel incomplètes", true);
+                    return;
+                }
+                
+                currentPixelData = new Uint16Array(currentRows * currentCols);
+                for (let i = 0; i < currentRows * currentCols; i++) {
+                    currentPixelData[i] = pixelData[i];
+                }
+                
+                currentMin = Math.min(...currentPixelData);
+                currentMax = Math.max(...currentPixelData);
+                
+                // Valeurs de fenêtrage : priorité aux tags DICOM sinon contexte
+                let wc = dataset.floatString('x00281050');
+                let ww = dataset.floatString('x00281051');
+                
+                if (wc && ww && !isNaN(wc) && !isNaN(ww) && wc > -10000 && ww > 0) {
+                    windowLevelSlider.value = wc;
+                    windowWidthSlider.value = ww;
+                } else {
+                    const modality = dataset.string('x00080060');
+                    if (modality === 'CT') {
+                        windowLevelSlider.value = 400;
+                        windowWidthSlider.value = 400;
+                    } else if (modality === 'MR') {
+                        windowLevelSlider.value = 300;
+                        windowWidthSlider.value = 600;
+                    } else if (modality === 'DX' || modality === 'CR') {
+                        windowLevelSlider.value = (currentMin + currentMax) / 2;
+                        windowWidthSlider.value = (currentMax - currentMin);
+                        if (windowWidthSlider.value <= 0) windowWidthSlider.value = 255;
+                    } else {
+                        windowLevelSlider.value = (currentMin + currentMax) / 2;
+                        windowWidthSlider.value = (currentMax - currentMin) || 400;
+                    }
+                }
+                
+                displayMetadata(dataset);
+                
+                // Réinitialiser transformations
+                isInverted = false;
+                currentRotation = 0;
+                currentZoom = 1;
+                currentTranslateX = 0;
+                currentTranslateY = 0;
+                zoomSlider.value = 100;
+                invertBtn.classList.remove('active');
+                
+                renderImage();
+                
+                setStatus(`✅ DICOM chargé : ${file.name} (${currentCols}x${currentRows})`);
+                const patientName = dataset.string('x00100010');
+                if (patientName && patientName.trim().length > 0) {
+                    setTimeout(() => {
+                        statusMsgDiv.innerHTML = `🩻 Patient: ${patientName} | Radioprotection active`;
+                        setTimeout(() => {
+                            if (statusMsgDiv.innerHTML.includes(patientName)) statusMsgDiv.innerHTML = "✅ Prêt";
+                        }, 2800);
+                    }, 800);
+                } else {
+                    setTimeout(() => {
+                        statusMsgDiv.innerHTML = `🛡️ Principe ALARA | Optimisation contraste`;
+                        setTimeout(() => statusMsgDiv.innerHTML = "✅ Prêt", 2200);
+                    }, 800);
+                }
+                
+            } catch (parseErr) {
+                console.error(parseErr);
+                setStatus("Fichier DICOM invalide ou non standard", true);
+                metadataDisplay.innerHTML = '<span style="color:#d9534f;">❌ Erreur: format non reconnu ou corrompu</span>';
+            }
+        };
+        
+        fileReader.onerror = () => {
+            setStatus("Erreur de lecture du fichier", true);
+        };
+        
+        fileReader.readAsArrayBuffer(file);
+        fileInfoDiv.innerHTML = `📄 ${file.name}<br>📊 ${(file.size / 1024).toFixed(1)} KB · <i class="fas fa-shield-alt"></i> Conforme DICOM`;
+    }
+    
+    // Événements UI
+    uploadArea.addEventListener('click', () => dicomInput.click());
+    
+    dicomInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            loadDicomFile(e.target.files[0]);
+        }
+    });
+    
+    // Drag & drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#1f6e8c';
+        uploadArea.style.background = '#e1f0f5';
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.style.borderColor = '#bdd3e6';
+        uploadArea.style.background = '#f9fdfe';
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#bdd3e6';
+        uploadArea.style.background = '#f9fdfe';
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            const fileName = file.name.toLowerCase();
+            if (fileName.endsWith('.dcm') || fileName.endsWith('.dic')) {
+                loadDicomFile(file);
+            } else {
+                setStatus("Veuillez glisser un fichier .dcm ou .dic valide", true);
+            }
+        }
+    });
+    
+    // Sliders
+    windowLevelSlider.addEventListener('input', () => { if (currentPixelData) renderImage(); });
+    windowWidthSlider.addEventListener('input', () => { if (currentPixelData) renderImage(); });
+    zoomSlider.addEventListener('input', () => {
+        if (currentPixelData) {
+            currentZoom = zoomSlider.value / 100;
+            renderImage();
+        }
+        zoomValSpan.innerText = zoomSlider.value;
+    });
+    
+    invertBtn.addEventListener('click', () => {
+        if (!currentPixelData) return;
+        isInverted = !isInverted;
+        renderImage();
+        invertBtn.classList.toggle('active', isInverted);
+        setStatus(isInverted ? "Mode inversé activé" : "Mode normal");
+    });
+    
+    rotateLeft.addEventListener('click', () => {
+        if (!currentPixelData) return;
+        currentRotation -= 90;
+        if (currentRotation <= -360) currentRotation += 360;
+        renderImage();
+    });
+    
+    rotateRight.addEventListener('click', () => {
+        if (!currentPixelData) return;
+        currentRotation += 90;
+        if (currentRotation >= 360) currentRotation -= 360;
+        renderImage();
+    });
+    
+    resetViewBtn.addEventListener('click', resetView);
+    
+    fullscreenBtn.addEventListener('click', () => {
+        const viewer = document.querySelector('.viewer-area');
+        if (!document.fullscreenElement) {
+            viewer.requestFullscreen().catch(err => setStatus("Erreur plein écran", true));
+        } else {
+            document.exitFullscreen();
+        }
+    });
+    
+    canvas.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('wheel', onWheel);
+    canvas.style.cursor = 'grab';
+    window.addEventListener('resize', () => { if (currentPixelData) renderImage(); });
+    
+    setStatus("Prêt à importer DICOM (Master en Radioprotection)");
+    console.log("MediView DICOM | Khaoula Banour – Master Radioprotection, outils avancés fenêtrage/dose");
+</script>
+</body>
+</html>

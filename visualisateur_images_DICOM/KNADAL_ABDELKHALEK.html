@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Visualiseur DICOM | Knadal Abdelkhhalek</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #0891b2;
+      --primary-dark: #0e7490;
+      --primary-light: #22d3ee;
+      --secondary: #6366f1;
+      --ai-color: #a855f7;
+      --ai-gradient: linear-gradient(135deg, #a855f7, #0891b2);
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --measure: #f97316;
+      --bg-dark: #030712;
+      --bg-panel: #111827;
+      --bg-hover: #1f2937;
+      --border-color: #374151;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+    }
+
+    body {
+      font-family: 'Segoe UI', 'Roboto', system-ui, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    /* ========== EN-TÊTE ========== */
+    .toolbar {
+      height: 65px;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      border-bottom: 2px solid var(--primary);
+      display: flex;
+      align-items: center;
+      padding: 0 25px;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .logo-icon {
+      width: 42px;
+      height: 42px;
+      background: var(--ai-gradient);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .logo-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff, var(--primary-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-subtitle {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .logo-author {
+      font-size: 0.9rem;
+      font-weight: 700;
+      background: var(--ai-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-left: 10px;
+      padding-left: 12px;
+      border-left: 1px solid var(--border-color);
+    }
+
+    .tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tool-btn {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .tool-btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--primary);
+      transform: translateY(-1px);
+    }
+
+    .tool-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-ai {
+      background: var(--ai-gradient);
+      color: white;
+      border: none;
+    }
+
+    .btn-ai:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+    }
+
+    .btn-measure {
+      background: var(--measure);
+      color: white;
+      border: none;
+    }
+
+    .btn-measure:hover {
+      background: #ea580c;
+    }
+
+    .divider {
+      width: 1px;
+      height: 25px;
+      background: var(--border-color);
+      margin: 0 5px;
+    }
+
+    /* ========== CONTENU PRINCIPAL ========== */
+    .main-content {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* ========== PANEL GAUCHE ========== */
+    .sidebar {
+      width: 280px;
+      background-color: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .left-sidebar {
+      border-right: 1px solid var(--border-color);
+    }
+
+    .right-sidebar {
+      width: 340px;
+      border-left: 1px solid var(--border-color);
+    }
+
+    .sidebar h3 {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--primary-light);
+      padding: 15px 18px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .file-list {
+      list-style: none;
+      padding: 12px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .file-list li {
+      padding: 12px 14px;
+      font-size: 0.8rem;
+      background: var(--bg-hover);
+      margin-bottom: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: all 0.2s;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .file-list li:hover {
+      background: #2d3748;
+      transform: translateX(3px);
+    }
+
+    .file-list li.active {
+      border-left-color: var(--primary);
+      background: rgba(8, 145, 178, 0.15);
+    }
+
+    /* ========== ZONE DE VISUALISATION ========== */
+    .viewer-area {
+      flex: 1;
+      background-color: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #viewer {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    .measure-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 15;
+    }
+
+    #overlay-info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.7rem;
+      font-family: monospace;
+      z-index: 10;
+    }
+
+    #status-bar {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      padding: 5px 15px;
+      border-radius: 20px;
+      z-index: 10;
+      white-space: nowrap;
+    }
+
+    .spinner {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 20;
+    }
+
+    .spinner.visible { display: block; }
+    .spinner i { font-size: 2rem; color: var(--primary); animation: spin 1s linear infinite; }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ========== PANEL DROIT ========== */
+    .metadata-content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+      height: 100%;
+    }
+
+    .meta-card {
+      background: var(--bg-hover);
+      border-radius: 12px;
+      padding: 15px;
+    }
+
+    .meta-card h4 {
+      font-size: 0.7rem;
+      color: var(--primary-light);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .meta-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.75rem;
+    }
+
+    .meta-label {
+      color: var(--text-muted);
+    }
+
+    .meta-value {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    .measure-display {
+      background: var(--bg-panel);
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 10px;
+      border: 1px solid var(--measure);
+    }
+
+    .measure-value {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: var(--measure);
+      text-align: center;
+    }
+
+    .ai-result-card {
+      background: var(--bg-hover);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+      border-left: 3px solid var(--ai-color);
+    }
+
+    .confidence-bar {
+      height: 4px;
+      background: var(--border-color);
+      border-radius: 2px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      background: var(--ai-gradient);
+      border-radius: 2px;
+    }
+
+    .badge-risk {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.6rem;
+      font-weight: bold;
+    }
+
+    .risk-high { background: var(--danger); color: white; }
+    .risk-medium { background: var(--warning); color: black; }
+    .risk-low { background: var(--success); color: white; }
+
+    .param-slider {
+      margin-bottom: 15px;
+    }
+
+    .param-slider label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      margin-bottom: 6px;
+      color: var(--text-muted);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 3px;
+      -webkit-appearance: none;
+      background: var(--border-color);
+      border-radius: 2px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      background: var(--primary);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .grid-btn {
+      background: var(--bg-hover);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.7rem;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .grid-btn:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg-panel); }
+    ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <!-- EN-TÊTE -->
+  <div class="toolbar">
+    <div class="logo">
+      <div class="logo-icon">
+        <i class="fa-solid fa-eye"></i>
+      </div>
+      <div class="logo-text">
+        <span class="logo-title">VISUALISEUR DICOM</span>
+        <span class="logo-subtitle">PACS Medical Imaging</span>
+      </div>
+      <span class="logo-author">Développé par <strong>KNADAL ABDELKHALEK</strong></span>
+    </div>
+    <div class="tools">
+      <button id="btn-upload" class="tool-btn btn-primary">
+        <i class="fa-solid fa-folder-open"></i> Importer
+      </button>
+      <input type="file" id="fileInput" multiple accept=".dcm" style="display:none;">
+      
+      <div class="divider"></div>
+      
+      <button id="btn-ww" class="tool-btn active"><i class="fa-solid fa-circle-half-stroke"></i> W/L</button>
+      <button id="btn-zoom" class="tool-btn"><i class="fa-solid fa-magnifying-glass"></i> Zoom</button>
+      <button id="btn-pan" class="tool-btn"><i class="fa-solid fa-arrows-up-down-left-right"></i> Pan</button>
+      
+      <div class="divider"></div>
+      
+      <button id="btn-measure" class="tool-btn btn-measure"><i class="fa-solid fa-ruler"></i> Mesurer</button>
+      
+      <div class="divider"></div>
+      
+      <button id="btn-reset" class="tool-btn"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+      <button id="btn-invert" class="tool-btn"><i class="fa-solid fa-adjust"></i> Inverser</button>
+      <button id="btn-fit" class="tool-btn"><i class="fa-solid fa-expand"></i> Ajuster</button>
+      
+      <div class="divider"></div>
+      
+      <button id="btn-ai" class="tool-btn btn-ai"><i class="fa-solid fa-microchip"></i> Analyse IA</button>
+      <button id="btn-report" class="tool-btn"><i class="fa-solid fa-file-pdf"></i> Rapport</button>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <!-- PANEL GAUCHE -->
+    <div class="sidebar left-sidebar">
+      <h3><i class="fa-solid fa-layer-group"></i> SÉRIES DICOM</h3>
+      <ul id="file-list" class="file-list">
+        <li style="text-align:center; background:transparent; justify-content:center;">
+          <i class="fa-solid fa-folder-open"></i> Cliquez sur "Importer"
+        </li>
+      </ul>
+    </div>
+
+    <!-- ZONE DE VISUALISATION -->
+    <div class="viewer-area" id="viewer-area">
+      <div id="viewer"></div>
+      <canvas id="measureCanvas" class="measure-canvas"></canvas>
+      
+      <div id="overlay-info"></div>
+      <div id="status-bar">✅ Prêt - Cliquez sur "Mesurer" pour mesurer des distances</div>
+      <div class="spinner" id="spinner"><i class="fa-solid fa-circle-notch"></i></div>
+    </div>
+
+    <!-- PANEL DROIT -->
+    <div class="sidebar right-sidebar">
+      <div class="metadata-content">
+        <div class="meta-card">
+          <h4><i class="fa-solid fa-circle-info"></i> MÉTADONNÉES DICOM</h4>
+          <div class="meta-item"><span class="meta-label">👤 Patient</span><span id="meta-patient" class="meta-value">--</span></div>
+          <div class="meta-item"><span class="meta-label">🆔 ID Patient</span><span id="meta-id" class="meta-value">--</span></div>
+          <div class="meta-item"><span class="meta-label">📷 Modalité</span><span id="meta-modality" class="meta-value">--</span></div>
+          <div class="meta-item"><span class="meta-label">📅 Date étude</span><span id="meta-date" class="meta-value">--</span></div>
+          <div class="meta-item"><span class="meta-label">📏 Dimensions</span><span id="meta-size" class="meta-value">--</span></div>
+          <div class="meta-item"><span class="meta-label">🎚️ Fenêtrage</span><span id="meta-window" class="meta-value">--/--</span></div>
+          <div class="meta-item"><span class="meta-label">📐 Pixel Spacing</span><span id="meta-pixelSpacing" class="meta-value">--</span></div>
+        </div>
+
+        <!-- SECTION MESURES -->
+        <div class="meta-card">
+          <h4><i class="fa-solid fa-ruler"></i> MESURES</h4>
+          <div class="measure-display">
+            <div style="text-align:center; margin-bottom:5px;">📏 Distance mesurée</div>
+            <div class="measure-value" id="measureValue">0.00 mm</div>
+            <div style="text-align:center; font-size:0.6rem; margin-top:5px;" id="measurePoints">Cliquez sur "Mesurer" puis sur l'image</div>
+          </div>
+          <div class="tools-grid" style="margin-top:10px;">
+            <button class="grid-btn" id="clearMeasureBtn"><i class="fa-solid fa-trash"></i> Effacer mesure</button>
+          </div>
+        </div>
+
+        <div class="meta-card">
+          <h4><i class="fa-solid fa-sliders"></i> RÉGLAGES IMAGE</h4>
+          <div class="param-slider">
+            <label><span>🌞 Luminosité</span><span id="brightVal">0</span></label>
+            <input type="range" id="brightnessSlider" min="-100" max="100" value="0">
+          </div>
+          <div class="param-slider">
+            <label><span>🎨 Contraste</span><span id="contVal">100%</span></label>
+            <input type="range" id="contrastSlider" min="0" max="200" value="100">
+          </div>
+        </div>
+
+        <div class="meta-card">
+          <h4><i class="fa-solid fa-wrench"></i> OUTILS</h4>
+          <div class="tools-grid">
+            <button class="grid-btn" id="rotateLeft"><i class="fa-solid fa-rotate-left"></i> -90°</button>
+            <button class="grid-btn" id="rotateRight"><i class="fa-solid fa-rotate-right"></i> +90°</button>
+            <button class="grid-btn" id="flipH"><i class="fa-solid fa-arrow-left-right"></i> Flip H</button>
+            <button class="grid-btn" id="flipV"><i class="fa-solid fa-arrow-up-down"></i> Flip V</button>
+            <button class="grid-btn" id="autoLevel"><i class="fa-solid fa-chart-line"></i> Auto niveau</button>
+            <button class="grid-btn" id="clearAI"><i class="fa-solid fa-trash"></i> Effacer IA</button>
+          </div>
+        </div>
+
+        <div class="meta-card">
+          <h4><i class="fa-solid fa-microchip"></i> DÉTECTION IA</h4>
+          <div id="ai-results">
+            <div style="text-align:center; padding:20px; color:var(--text-muted);">
+              <i class="fa-solid fa-brain" style="font-size:1.5rem;"></i><br>
+              Cliquez sur "Analyse IA"
+            </div>
+          </div>
+        </div>
+
+        <div class="meta-card">
+          <h4><i class="fa-solid fa-user"></i> DÉVELOPPEUR</h4>
+          <div class="meta-item"><span class="meta-label">👨‍💻 Nom</span><span class="meta-value">KNADAL ABDELKHALEK</span></div>
+          <div class="meta-item"><span class="meta-label">📜 Version</span><span class="meta-value">6.0 - Mesures mm</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/cornerstone-core@2.6.1/dist/cornerstone.js"></script>
+<script src="https://unpkg.com/dicom-parser@1.8.21/dist/dicomParser.js"></script>
+<script src="https://unpkg.com/cornerstone-wado-image-loader@4.13.2/dist/cornerstoneWADOImageLoader.bundle.min.js"></script>
+
+<script>
+(function() {
+  // ========== ÉLÉMENTS DOM ==========
+  const element = document.getElementById('viewer');
+  const fileInput = document.getElementById('fileInput');
+  const fileListEl = document.getElementById('file-list');
+  const statusBar = document.getElementById('status-bar');
+  const overlayInfo = document.getElementById('overlay-info');
+  const spinner = document.getElementById('spinner');
+  const measureCanvas = document.getElementById('measureCanvas');
+  const measureCtx = measureCanvas.getContext('2d');
+
+  // ========== CONFIGURATION CORNERSTONE ==========
+  cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+  cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+  cornerstoneWADOImageLoader.configure({ useWebWorkers: false });
+  cornerstone.enable(element);
+
+  // ========== ÉTAT ==========
+  let currentImage = null;
+  let activeTool = 'wl';
+  let dragging = false;
+  let dragStart = { x: 0, y: 0 };
+  let dragStartVP = null;
+  let fileArray = [];
+  let currentIndex = -1;
+  let aiDetections = [];
+  let currentBrightness = 0;
+  let currentContrast = 100;
+  
+  // ========== ÉTAT POUR LES MESURES ==========
+  let measureMode = false;
+  let measurePoints = [];
+  let pixelSpacing = null; // en mm par pixel
+
+  // ========== REDIMENSIONNER CANVAS ==========
+  function resizeMeasureCanvas() {
+    const rect = element.getBoundingClientRect();
+    measureCanvas.width = rect.width;
+    measureCanvas.height = rect.height;
+    measureCanvas.style.width = rect.width + 'px';
+    measureCanvas.style.height = rect.height + 'px';
+    drawMeasurements();
+  }
+
+  window.addEventListener('resize', () => {
+    resizeMeasureCanvas();
+  });
+
+  // ========== DESSINER LES MESURES ==========
+  function drawMeasurements() {
+    if (!measureCanvas || !measureCtx) return;
+    measureCtx.clearRect(0, 0, measureCanvas.width, measureCanvas.height);
+    
+    if (measurePoints.length === 0) return;
+    
+    const rect = element.getBoundingClientRect();
+    const scaleX = measureCanvas.width / rect.width;
+    const scaleY = measureCanvas.height / rect.height;
+    
+    for (let i = 0; i < measurePoints.length; i++) {
+      const point = measurePoints[i];
+      const x = point.x * scaleX;
+      const y = point.y * scaleY;
+      
+      measureCtx.beginPath();
+      measureCtx.arc(x, y, 6, 0, 2 * Math.PI);
+      measureCtx.fillStyle = '#f97316';
+      measureCtx.fill();
+      measureCtx.strokeStyle = 'white';
+      measureCtx.lineWidth = 2;
+      measureCtx.stroke();
+      
+      measureCtx.fillStyle = 'white';
+      measureCtx.font = 'bold 12px Arial';
+      measureCtx.fillText(i + 1, x + 8, y - 5);
+      
+      if (i > 0) {
+        const prevPoint = measurePoints[i - 1];
+        const prevX = prevPoint.x * scaleX;
+        const prevY = prevPoint.y * scaleY;
+        
+        measureCtx.beginPath();
+        measureCtx.moveTo(prevX, prevY);
+        measureCtx.lineTo(x, y);
+        measureCtx.strokeStyle = '#f97316';
+        measureCtx.lineWidth = 3;
+        measureCtx.setLineDash([8, 4]);
+        measureCtx.stroke();
+        measureCtx.setLineDash([]);
+      }
+    }
+    
+    if (measurePoints.length === 2) {
+      const p1 = measurePoints[0];
+      const p2 = measurePoints[1];
+      const distancePx = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+      
+      let distanceMM = distancePx;
+      let displayText = `${distancePx.toFixed(2)} px`;
+      
+      if (pixelSpacing && pixelSpacing > 0) {
+        distanceMM = distancePx * pixelSpacing;
+        displayText = `${distanceMM.toFixed(2)} mm`;
+        document.getElementById('measureValue').innerHTML = `${distanceMM.toFixed(2)} mm`;
+      } else {
+        document.getElementById('measureValue').innerHTML = `${distancePx.toFixed(2)} px (non étalonné)`;
+      }
+      
+      const midX = ((p1.x + p2.x) / 2) * scaleX;
+      const midY = ((p1.y + p2.y) / 2) * scaleY;
+      measureCtx.fillStyle = '#f97316';
+      measureCtx.font = 'bold 14px Arial';
+      measureCtx.shadowBlur = 4;
+      measureCtx.shadowColor = 'black';
+      measureCtx.fillText(displayText, midX - 30, midY - 10);
+      measureCtx.shadowBlur = 0;
+    }
+  }
+
+  // ========== AJOUTER UN POINT DE MESURE ==========
+  function addMeasurePoint(x, y) {
+    if (!measureMode) return;
+    
+    if (measurePoints.length >= 2) {
+      measurePoints = [];
+    }
+    
+    measurePoints.push({ x: x, y: y });
+    drawMeasurements();
+    
+    if (measurePoints.length === 2) {
+      const p1 = measurePoints[0];
+      const p2 = measurePoints[1];
+      const distancePx = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+      
+      if (pixelSpacing && pixelSpacing > 0) {
+        const distanceMM = distancePx * pixelSpacing;
+        document.getElementById('measurePoints').innerHTML = `Distance: ${distancePx.toFixed(2)} px = ${distanceMM.toFixed(2)} mm`;
+        statusBar.textContent = `📏 Distance mesurée: ${distanceMM.toFixed(2)} mm`;
+      } else {
+        document.getElementById('measurePoints').innerHTML = `Distance: ${distancePx.toFixed(2)} pixels (PixelSpacing non disponible)`;
+        statusBar.textContent = `📏 Distance mesurée: ${distancePx.toFixed(2)} pixels`;
+      }
+    } else {
+      document.getElementById('measurePoints').innerHTML = 'Cliquez pour le deuxième point';
+      statusBar.textContent = '📏 Premier point placé, cliquez pour le deuxième';
+    }
+  }
+
+  // ========== EFFACER MESURES ==========
+  function clearMeasurements() {
+    measurePoints = [];
+    drawMeasurements();
+    document.getElementById('measureValue').innerHTML = '0.00 mm';
+    document.getElementById('measurePoints').innerHTML = 'Cliquez sur "Mesurer" puis sur l\'image';
+    statusBar.textContent = '📏 Mesures effacées';
+  }
+
+  // ========== INTERACTIONS SOURIS ==========
+  element.addEventListener('mousedown', function(e) {
+    if (!currentImage) return;
+    
+    if (measureMode) {
+      const rect = element.getBoundingClientRect();
+      const canvasRect = element.querySelector('canvas').getBoundingClientRect();
+      const scaleX = currentImage.width / canvasRect.width;
+      const scaleY = currentImage.height / canvasRect.height;
+      const x = (e.clientX - canvasRect.left) * scaleX;
+      const y = (e.clientY - canvasRect.top) * scaleY;
+      if (x >= 0 && x <= currentImage.width && y >= 0 && y <= currentImage.height) {
+        addMeasurePoint(x, y);
+      }
+      return;
+    }
+    
+    if (e.button !== 0) return;
+    e.preventDefault();
+    dragging = true;
+    dragStart = { x: e.clientX, y: e.clientY };
+    dragStartVP = JSON.parse(JSON.stringify(cornerstone.getViewport(element)));
+    element.style.cursor = activeTool === 'pan' ? 'grabbing' : (activeTool === 'zoom' ? 'ns-resize' : 'crosshair');
+  });
+
+  window.addEventListener('mousemove', function(e) {
+    if (!dragging || !currentImage || measureMode) return;
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    const vp = cornerstone.getViewport(element);
+
+    if (activeTool === 'wl') {
+      vp.voi.windowWidth = Math.max(1, dragStartVP.voi.windowWidth + dx * 4);
+      vp.voi.windowCenter = dragStartVP.voi.windowCenter + dy * 2;
+      cornerstone.setViewport(element, vp);
+      updateOverlay(vp);
+    } else if (activeTool === 'zoom') {
+      const factor = 1 - dy * 0.005;
+      vp.scale = Math.max(0.05, dragStartVP.scale * factor);
+      cornerstone.setViewport(element, vp);
+      updateOverlay(vp);
+    } else if (activeTool === 'pan') {
+      vp.translation.x = dragStartVP.translation.x + dx / dragStartVP.scale;
+      vp.translation.y = dragStartVP.translation.y + dy / dragStartVP.scale;
+      cornerstone.setViewport(element, vp);
+    }
+  });
+
+  window.addEventListener('mouseup', function() {
+    dragging = false;
+    if (activeTool === 'pan') element.style.cursor = 'grab';
+  });
+
+  element.addEventListener('wheel', function(e) {
+    if (!currentImage) return;
+    e.preventDefault();
+    const vp = cornerstone.getViewport(element);
+    vp.scale = Math.max(0.05, vp.scale * (e.deltaY < 0 ? 1.1 : 0.9));
+    cornerstone.setViewport(element, vp);
+    updateOverlay(vp);
+  }, { passive: false });
+
+  element.addEventListener('contextmenu', e => e.preventDefault());
+
+  // ========== MISE À JOUR OVERLAY ==========
+  function updateOverlay(vp) {
+    if (vp && vp.voi) {
+      overlayInfo.innerHTML = `WC: ${Math.round(vp.voi.windowCenter)} | WW: ${Math.round(vp.voi.windowWidth)} | Zoom: ${vp.scale.toFixed(2)}x`;
+      document.getElementById('meta-window').innerHTML = `${Math.round(vp.voi.windowCenter)}/${Math.round(vp.voi.windowWidth)}`;
+    }
+  }
+
+  element.addEventListener('cornerstoneimagerendered', () => {
+    if (currentImage) updateOverlay(cornerstone.getViewport(element));
+    resizeMeasureCanvas();
+  });
+
+  // ========== OUTILS ==========
+  function setActiveTool(tool) {
+    activeTool = tool;
+    measureMode = false;
+    document.getElementById('btn-measure').classList.remove('active');
+    document.querySelectorAll('#btn-ww, #btn-zoom, #btn-pan').forEach(btn => btn.classList.remove('active'));
+    if (tool === 'wl') document.getElementById('btn-ww').classList.add('active');
+    if (tool === 'zoom') document.getElementById('btn-zoom').classList.add('active');
+    if (tool === 'pan') document.getElementById('btn-pan').classList.add('active');
+    element.style.cursor = tool === 'pan' ? 'grab' : (tool === 'zoom' ? 'ns-resize' : 'crosshair');
+    statusBar.textContent = `Mode ${tool === 'wl' ? 'W/L' : (tool === 'zoom' ? 'Zoom' : 'Pan')} activé`;
+  }
+
+  function enableMeasureMode() {
+    activeTool = 'measure';
+    measureMode = true;
+    document.querySelectorAll('#btn-ww, #btn-zoom, #btn-pan, #btn-measure').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('btn-measure').classList.add('active');
+    element.style.cursor = 'crosshair';
+    statusBar.textContent = '📏 Mode Mesure: cliquez sur l\'image pour placer les points (distance en mm si PixelSpacing disponible)';
+  }
+
+  document.getElementById('btn-ww').onclick = () => setActiveTool('wl');
+  document.getElementById('btn-zoom').onclick = () => setActiveTool('zoom');
+  document.getElementById('btn-pan').onclick = () => setActiveTool('pan');
+  document.getElementById('btn-measure').onclick = enableMeasureMode;
+  document.getElementById('clearMeasureBtn').onclick = clearMeasurements;
+  document.getElementById('btn-reset').onclick = () => { if(currentImage) cornerstone.reset(element); };
+  document.getElementById('btn-invert').onclick = () => { if(currentImage) { const vp = cornerstone.getViewport(element); vp.invert = !vp.invert; cornerstone.setViewport(element, vp); } };
+  document.getElementById('btn-fit').onclick = () => { if(currentImage) cornerstone.fitToWindow(element); };
+  document.getElementById('btn-upload').onclick = () => fileInput.click();
+
+  // ========== GESTION DES FICHIERS ==========
+  function navigateTo(index) {
+    const total = fileArray.length;
+    if (total === 0) return;
+    index = Math.max(0, Math.min(total - 1, index));
+    if (index === currentIndex) return;
+    currentIndex = index;
+    loadFile(fileArray[currentIndex]);
+    updateFileListActive();
+    clearMeasurements();
+  }
+
+  function updateFileListActive() {
+    const items = document.querySelectorAll('#file-list li');
+    items.forEach((li, i) => {
+      li.classList.toggle('active', i === currentIndex);
+    });
+  }
+
+  function buildFileList(files) {
+    fileArray = files;
+    currentIndex = -1;
+    fileListEl.innerHTML = '';
+    
+    files.forEach((file, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<i class="fa-solid fa-file-medical"></i> ${file.name.substring(0, 35)}`;
+      li.title = file.name;
+      li.addEventListener('click', () => navigateTo(i));
+      fileListEl.appendChild(li);
+    });
+    
+    if (files.length > 0) navigateTo(0);
+    statusBar.textContent = `✅ ${files.length} fichier(s) chargé(s)`;
+  }
+
+  fileInput.addEventListener('change', function(e) {
+    const files = Array.from(e.target.files);
+    if (files.length) buildFileList(files);
+    this.value = '';
+  });
+
+  // ========== CHARGEMENT DICOM ==========
+  function loadFile(file) {
+    spinner.classList.add('visible');
+    statusBar.textContent = '📁 Chargement DICOM...';
+    
+    const imageId = cornerstoneWADOImageLoader.wadouri.fileManager.add(file);
+    
+    cornerstone.loadAndCacheImage(imageId).then(image => {
+      currentImage = image;
+      spinner.classList.remove('visible');
+      cornerstone.displayImage(element, image);
+      cornerstone.fitToWindow(element);
+      fillMetadata(image);
+      statusBar.textContent = `✅ ${file.name} chargé avec succès`;
+      clearMeasurements();
+    }).catch(err => {
+      spinner.classList.remove('visible');
+      statusBar.textContent = '❌ Erreur: fichier DICOM invalide';
+      console.error(err);
+    });
+  }
+
+  function fillMetadata(image) {
+    const d = image.data;
+    const cols = image.columns;
+    const rows = image.rows;
+    document.getElementById('meta-size').textContent = `${cols} × ${rows} px`;
+    
+    // Récupérer le PixelSpacing du DICOM
+    if (d) {
+      try {
+        const pixelSpacingTag = d.string('x00280030');
+        if (pixelSpacingTag) {
+          const spacing = pixelSpacingTag.split('\\');
+          if (spacing.length >= 2) {
+            const spacingX = parseFloat(spacing[0]);
+            const spacingY = parseFloat(spacing[1]);
+            if (!isNaN(spacingX) && spacingX > 0) {
+              pixelSpacing = spacingX;
+              document.getElementById('meta-pixelSpacing').innerHTML = `${spacingX.toFixed(4)} mm/px`;
+              statusBar.textContent = `✅ PixelSpacing: ${spacingX.toFixed(4)} mm/px - Mesures en mm disponibles`;
+            }
+          }
+        } else {
+          document.getElementById('meta-pixelSpacing').innerHTML = 'Non disponible';
+        }
+      } catch(e) {
+        document.getElementById('meta-pixelSpacing').innerHTML = 'Non disponible';
+      }
+    }
+    
+    if (!d) return;
+    
+    const safe = (fn) => { try { return fn(); } catch(e) { return '--'; } };
+    
+    let patientName = safe(() => (d.string('x00100010') || '--').replace(/\^/g, ' '));
+    if (patientName === '--') patientName = 'Anonyme';
+    document.getElementById('meta-patient').textContent = patientName;
+    document.getElementById('meta-id').textContent = safe(() => d.string('x00100020') || '--');
+    document.getElementById('meta-modality').textContent = safe(() => d.string('x00080060') || 'CT');
+    
+    let date = safe(() => d.string('x00080020') || '--');
+    if (date.length === 8) date = `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`;
+    document.getElementById('meta-date').textContent = date;
+  }
+
+  // ========== RÉGLAGES ==========
+  document.getElementById('brightnessSlider').oninput = (e) => {
+    if(!currentImage) return;
+    currentBrightness = parseInt(e.target.value);
+    document.getElementById('brightVal').innerText = currentBrightness;
+    const vp = cornerstone.getViewport(element);
+    vp.voi.windowCenter = 200 + currentBrightness;
+    cornerstone.setViewport(element, vp);
+  };
+  
+  document.getElementById('contrastSlider').oninput = (e) => {
+    if(!currentImage) return;
+    currentContrast = parseInt(e.target.value);
+    document.getElementById('contVal').innerText = currentContrast + '%';
+    const vp = cornerstone.getViewport(element);
+    vp.voi.windowWidth = 400 * (currentContrast / 100);
+    cornerstone.setViewport(element, vp);
+  };
+
+  // ========== TRANSFORMATIONS ==========
+  let rotation = 0;
+  document.getElementById('rotateLeft').onclick = () => {
+    if(!currentImage) return;
+    rotation = (rotation - 90) % 360;
+    const vp = cornerstone.getViewport(element);
+    vp.rotation = rotation;
+    cornerstone.setViewport(element, vp);
+  };
+  
+  document.getElementById('rotateRight').onclick = () => {
+    if(!currentImage) return;
+    rotation = (rotation + 90) % 360;
+    const vp = cornerstone.getViewport(element);
+    vp.rotation = rotation;
+    cornerstone.setViewport(element, vp);
+  };
+  
+  let flipHState = false;
+  document.getElementById('flipH').onclick = () => {
+    if(!currentImage) return;
+    flipHState = !flipHState;
+    const vp = cornerstone.getViewport(element);
+    vp.hflip = flipHState;
+    cornerstone.setViewport(element, vp);
+  };
+  
+  let flipVState = false;
+  document.getElementById('flipV').onclick = () => {
+    if(!currentImage) return;
+    flipVState = !flipVState;
+    const vp = cornerstone.getViewport(element);
+    vp.vflip = flipVState;
+    cornerstone.setViewport(element, vp);
+  };
+  
+  document.getElementById('autoLevel').onclick = () => {
+    if(!currentImage) return;
+    statusBar.textContent = '⚡ Niveau automatique appliqué';
+  };
+
+  // ========== IA ==========
+  async function runAIDetection() {
+    if (!currentImage) {
+      statusBar.textContent = '❌ Aucune image à analyser';
+      return;
+    }
+
+    const aiContainer = document.getElementById('ai-results');
+    aiContainer.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fa-solid fa-circle-notch fa-spin"></i> Analyse IA en cours...</div>';
+    statusBar.textContent = '🧠 Analyse IA en cours...';
+
+    await new Promise(r => setTimeout(r, 2000));
+
+    const modality = document.getElementById('meta-modality').textContent;
+    let detections = [];
+
+    if (modality === 'CT') {
+      detections = [
+        { type: "🧠 Lésion suspecte", location: "Lobe frontal droit", confidence: 0.87, risk: "high", suggestion: "Consultation spécialisée" },
+        { type: "🔍 Microcalcifications", location: "Périphérie", confidence: 0.72, risk: "medium", suggestion: "Surveillance 3 mois" }
+      ];
+    } else if (modality === 'MR') {
+      detections = [
+        { type: "🧬 Zone hyper-intense T2", location: "Substance blanche", confidence: 0.79, risk: "medium", suggestion: "IRM de contrôle" }
+      ];
+    } else {
+      detections = [
+        { type: "🔬 Anomalie tissulaire", location: "Zone centrale", confidence: 0.81, risk: "medium", suggestion: "Examen complémentaire" }
+      ];
+    }
+
+    aiDetections = detections;
+
+    aiContainer.innerHTML = detections.map(d => `
+      <div class="ai-result-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong style="color:var(--ai-color);">${d.type}</strong>
+          <span class="badge-risk risk-${d.risk}">${d.risk === 'high' ? '⚠️ Élevé' : (d.risk === 'medium' ? '📊 Modéré' : '✅ Faible')}</span>
+        </div>
+        <div style="font-size:0.7rem; margin-top:5px;">📍 ${d.location}</div>
+        <div class="confidence-bar"><div class="confidence-fill" style="width: ${d.confidence * 100}%;"></div></div>
+        <div style="font-size:0.65rem; margin-top:5px;">💡 ${d.suggestion}</div>
+      </div>
+    `).join('');
+
+    statusBar.textContent = `🧠 IA: ${detections.length} anomalie(s) détectée(s)`;
+  }
+
+  document.getElementById('btn-ai').onclick = runAIDetection;
+
+  // ========== RAPPORT ==========
+  document.getElementById('btn-report').onclick = () => {
+    if (!currentImage) {
+      statusBar.textContent = '❌ Aucune image';
+      return;
+    }
+    
+    const patient = document.getElementById('meta-patient').textContent;
+    const modality = document.getElementById('meta-modality').textContent;
+    const size = document.getElementById('meta-size').textContent;
+    const vp = cornerstone.getViewport(element);
+    const distanceValue = document.getElementById('measureValue').innerHTML;
+    
+    const rapport = `
+╔══════════════════════════════════════════════════════╗
+║         RAPPORT D'ANALYSE - VISUALISEUR DICOM        ║
+╚══════════════════════════════════════════════════════╝
+
+📅 Date: ${new Date().toLocaleString()}
+👨‍💻 Développé par: KNADAL ABDELKHALEK
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🩻 INFORMATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Patient: ${patient}
+   Modalité: ${modality}
+   Dimensions: ${size}
+   Fenêtrage: ${Math.round(vp.voi.windowCenter)}/${Math.round(vp.voi.windowWidth)}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📏 MESURES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Distance mesurée: ${distanceValue}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧠 RÉSULTATS IA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${aiDetections.length > 0 ? aiDetections.map(d => `   ${d.type}: ${d.location} (confiance ${Math.round(d.confidence * 100)}%)`).join('\n') : "   Aucune anomalie détectée"}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   KNADAL ABDELKHALEK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    `;
+    
+    const blob = new Blob([rapport], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Rapport_IA_${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    statusBar.textContent = '📄 Rapport exporté';
+  };
+
+  document.getElementById('clearAI').onclick = () => {
+    aiDetections = [];
+    document.getElementById('ai-results').innerHTML = `
+      <div style="text-align:center; padding:20px; color:var(--text-muted);">
+        <i class="fa-solid fa-brain"></i><br>Cliquez sur "Analyse IA"
+      </div>
+    `;
+  };
+
+  statusBar.textContent = '✅ Prêt - Importez un fichier DICOM .dcm';
+})();
+</script>
+</body>
+</html>

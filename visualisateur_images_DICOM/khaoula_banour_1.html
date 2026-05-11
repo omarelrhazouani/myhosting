@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>MediView DICOM | Plateforme Professionnelle de Visualisation Médicale</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://unpkg.com/dicom-parser@1.8.21/dist/dicomParser.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f5f7fb;
+            height: 100vh;
+            overflow: hidden;
+            color: #1e293b;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Header */
+        .navbar {
+            background: #ffffff;
+            color: #1e293b;
+            padding: 0 2rem;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 1.8rem;
+            color: #0891b2;
+        }
+
+        .logo-text h1 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #0891b2, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-text p {
+            font-size: 0.65rem;
+            opacity: 0.7;
+            color: #475569;
+        }
+
+        /* Layout principal */
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            gap: 0;
+        }
+
+        /* Panneau de gauche - Outils */
+        .tools-panel {
+            width: 280px;
+            background: #ffffff;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.02);
+        }
+
+        .tools-section {
+            padding: 20px;
+            border-bottom: 1px solid #edf2f7;
+        }
+
+        .section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #5b6e8c;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        /* Grille d'outils */
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .tool-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #334155;
+        }
+
+        .tool-card:hover {
+            background: #f1f5f9;
+            border-color: #0891b2;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+
+        .tool-card.active {
+            background: #0891b2;
+            border-color: #0891b2;
+            color: white;
+        }
+
+        .tool-card i {
+            font-size: 1.5rem;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .tool-card span {
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        /* Pré-réglages */
+        .presets-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .preset-btn {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            color: #1e293b;
+        }
+
+        .preset-btn:hover {
+            background: #f1f5f9;
+            border-color: #0891b2;
+            color: #0891b2;
+        }
+
+        /* Sliders manuels */
+        .manual-sliders {
+            margin-top: 15px;
+        }
+
+        .slider-item {
+            margin-bottom: 15px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            margin-bottom: 8px;
+            color: #475569;
+        }
+
+        .slider-header i {
+            margin-right: 5px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background: #e2e8f0;
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #0891b2;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .slider-value {
+            text-align: right;
+            font-size: 0.7rem;
+            margin-top: 5px;
+            color: #0891b2;
+        }
+
+        /* Panneau droit - Informations patient */
+        .info-panel {
+            width: 260px;
+            background: #ffffff;
+            border-left: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -2px 0 8px rgba(0,0,0,0.02);
+        }
+
+        .info-section {
+            padding: 20px;
+            border-bottom: 1px solid #edf2f7;
+        }
+
+        .info-row {
+            margin-bottom: 12px;
+        }
+
+        .info-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            color: #5b6e8c;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 0.85rem;
+            font-weight: 500;
+            word-break: break-word;
+            color: #1e293b;
+        }
+
+        .info-value.date {
+            color: #0891b2;
+            font-family: monospace;
+        }
+
+        /* Zone de visualisation */
+        .viewer-area {
+            flex: 1;
+            background: #f1f5f9;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .viewer-toolbar {
+            background: #ffffff;
+            padding: 8px 16px;
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .viewer-btn {
+            background: transparent;
+            border: none;
+            color: #475569;
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .viewer-btn:hover {
+            background: #f1f5f9;
+            color: #0891b2;
+        }
+
+        #dicomViewport {
+            flex: 1;
+            position: relative;
+            background: #eef2f8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .canvas-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+        }
+
+        canvas {
+            display: block;
+            cursor: grab;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            background: white;
+        }
+
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        .status-msg {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(4px);
+            color: #0891b2;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            pointer-events: none;
+            z-index: 20;
+            font-family: monospace;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border: 1px solid #e2e8f0;
+            font-weight: 500;
+        }
+
+        .upload-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(8px);
+            padding: 24px 32px;
+            border-radius: 28px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+            border: 1px solid rgba(8,145,178,0.2);
+        }
+
+        .upload-overlay i {
+            font-size: 3.5rem;
+            color: #0891b2;
+            margin-bottom: 12px;
+        }
+
+        .upload-overlay p {
+            color: #334155;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 5px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #0891b2;
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="navbar">
+        <div class="logo-area">
+            <i class="fas fa-heartbeat logo-icon"></i>
+            <div class="logo-text">
+                <h1>MediView DICOM</h1>
+                <p>Visualisation diagnostique professionnelle</p>
+            </div>
+        </div>
+        <div style="display: flex; gap: 15px;">
+            <button id="uploadBtnHeader" class="viewer-btn" style="background:#f8fafc; border:1px solid #e2e8f0;">
+                <i class="fas fa-upload"></i> Importer DICOM
+            </button>
+            <span style="font-size:0.7rem; opacity:0.7; color:#475569;">Khaoula Banour</span>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <!-- Panneau gauche - Outils -->
+        <div class="tools-panel">
+            <div class="tools-section">
+                <div class="section-title">OUTILS</div>
+                <div class="tools-grid">
+                    <div class="tool-card" id="toolZoom">
+                        <i class="fas fa-search-plus"></i>
+                        <span>ZOOM</span>
+                    </div>
+                    <div class="tool-card" id="toolPan">
+                        <i class="fas fa-arrows-alt"></i>
+                        <span>PAN</span>
+                    </div>
+                    <div class="tool-card" id="toolWL">
+                        <i class="fas fa-sliders-h"></i>
+                        <span>W/L</span>
+                    </div>
+                    <div class="tool-card" id="toolInvert">
+                        <i class="fas fa-adjust"></i>
+                        <span>INV.</span>
+                    </div>
+                    <div class="tool-card" id="toolReset">
+                        <i class="fas fa-sync-alt"></i>
+                        <span>RÉIN.</span>
+                    </div>
+                    <div class="tool-card" id="toolInfo">
+                        <i class="fas fa-info-circle"></i>
+                        <span>INFO</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tools-section">
+                <div class="section-title">PRÉRÉGLAGES</div>
+                <div class="presets-grid">
+                    <div class="preset-btn" data-preset="brain">🧠 CERVEAU</div>
+                    <div class="preset-btn" data-preset="bone">🦴 OS</div>
+                    <div class="preset-btn" data-preset="lungs">🫁 POUMONS</div>
+                    <div class="preset-btn" data-preset="soft">🩻 MOU</div>
+                </div>
+            </div>
+
+            <div class="tools-section">
+                <div class="section-title">FENÊTRAGE MANUEL</div>
+                <div class="manual-sliders">
+                    <div class="slider-item">
+                        <div class="slider-header">
+                            <span><i class="fas fa-sun"></i> Window Level</span>
+                            <span id="wlValueDisplay">400</span>
+                        </div>
+                        <input type="range" id="windowLevel" min="-1000" max="2000" value="400" step="1">
+                    </div>
+                    <div class="slider-item">
+                        <div class="slider-header">
+                            <span><i class="fas fa-expand"></i> Window Width</span>
+                            <span id="wwValueDisplay">400</span>
+                        </div>
+                        <input type="range" id="windowWidth" min="1" max="3000" value="400" step="1">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Zone centrale - Visualisation -->
+        <div class="viewer-area">
+            <div class="viewer-toolbar">
+                <button class="viewer-btn" id="rotateLeftBtn"><i class="fas fa-undo-alt"></i> Rotation -90°</button>
+                <button class="viewer-btn" id="rotateRightBtn"><i class="fas fa-redo-alt"></i> Rotation +90°</button>
+                <button class="viewer-btn" id="flipHBtn"><i class="fas fa-arrows-alt-h"></i> Flip H</button>
+                <button class="viewer-btn" id="flipVBtn"><i class="fas fa-arrows-alt-v"></i> Flip V</button>
+                <button class="viewer-btn" id="fullscreenBtn"><i class="fas fa-expand"></i> Plein écran</button>
+                <div style="flex:1"></div>
+                <span style="font-size:0.7rem; color:#475569;" id="zoomLevelDisplay">Zoom: 100%</span>
+            </div>
+            <div id="dicomViewport">
+                <div class="canvas-container" id="canvasContainer">
+                    <canvas id="dicomCanvas"></canvas>
+                </div>
+                <div id="statusMsg" class="status-msg">✅ Prêt à charger un fichier DICOM</div>
+                <div id="uploadOverlay" class="upload-overlay">
+                    <i class="fas fa-file-medical-alt"></i>
+                    <p>Glissez-déposez un fichier DICOM<br>ou cliquez sur "Importer DICOM"</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panneau droit - Informations -->
+        <div class="info-panel">
+            <div class="info-section">
+                <div class="section-title">PATIENT & ÉTUDE</div>
+                <div class="info-row">
+                    <div class="info-label">DATE DE L'EXAMEN</div>
+                    <div class="info-value date" id="studyDate">---</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">DESCRIPTION DE LA SÉRIE</div>
+                    <div class="info-value" id="seriesDesc">---</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">MODALITÉ</div>
+                    <div class="info-value" id="modality">---</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">NOM DU PATIENT</div>
+                    <div class="info-value" id="patientName">---</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">ID PATIENT</div>
+                    <div class="info-value" id="patientID">---</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">TAILLE IMAGE</div>
+                    <div class="info-value" id="imageSize">---</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">VALEURS (HU)</div>
+                    <div class="info-value" id="huRange">---</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<input type="file" id="dicomInput" accept=".dcm, .dic, .dicom" style="display: none;" />
+
+<script>
+    // Variables
+    let currentPixelData = null;
+    let currentRows = 0;
+    let currentCols = 0;
+    let currentMin = 0;
+    let currentMax = 0;
+    let isInverted = false;
+    let currentRotation = 0;
+    let currentZoom = 1;
+    let currentTranslateX = 0;
+    let currentTranslateY = 0;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let currentRescaleSlope = 1;
+    let currentRescaleIntercept = 0;
+    let renderRequested = false;
+    let currentFlipH = false;
+    let currentFlipV = false;
+    let activeTool = 'zoom';
+
+    // DOM Elements
+    const canvas = document.getElementById('dicomCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvasContainer');
+    const dicomInput = document.getElementById('dicomInput');
+    const windowLevelSlider = document.getElementById('windowLevel');
+    const windowWidthSlider = document.getElementById('windowWidth');
+    const wlValueDisplay = document.getElementById('wlValueDisplay');
+    const wwValueDisplay = document.getElementById('wwValueDisplay');
+    const statusMsgDiv = document.getElementById('statusMsg');
+    const uploadBtnHeader = document.getElementById('uploadBtnHeader');
+    const uploadOverlay = document.getElementById('uploadOverlay');
+    const zoomLevelDisplay = document.getElementById('zoomLevelDisplay');
+
+    // Info panel elements
+    const studyDateEl = document.getElementById('studyDate');
+    const seriesDescEl = document.getElementById('seriesDesc');
+    const modalityEl = document.getElementById('modality');
+    const patientNameEl = document.getElementById('patientName');
+    const patientIDEl = document.getElementById('patientID');
+    const imageSizeEl = document.getElementById('imageSize');
+    const huRangeEl = document.getElementById('huRange');
+
+    // Tool buttons
+    const toolZoom = document.getElementById('toolZoom');
+    const toolPan = document.getElementById('toolPan');
+    const toolWL = document.getElementById('toolWL');
+    const toolInvert = document.getElementById('toolInvert');
+    const toolReset = document.getElementById('toolReset');
+    const toolInfo = document.getElementById('toolInfo');
+
+    function setActiveTool(tool) {
+        activeTool = tool;
+        [toolZoom, toolPan, toolWL].forEach(btn => btn.classList.remove('active'));
+        if (tool === 'zoom') toolZoom.classList.add('active');
+        if (tool === 'pan') toolPan.classList.add('active');
+        if (tool === 'wl') toolWL.classList.add('active');
+        
+        if (tool === 'zoom') canvas.style.cursor = 'zoom-in';
+        else if (tool === 'pan') canvas.style.cursor = 'grab';
+        else canvas.style.cursor = 'default';
+    }
+
+    function setStatus(msg, isError = false) {
+        statusMsgDiv.innerHTML = isError ? `⚠️ ${msg}` : `✅ ${msg}`;
+        statusMsgDiv.style.background = isError ? 'rgba(254,226,226,0.98)' : 'rgba(240,253,250,0.98)';
+        statusMsgDiv.style.color = isError ? '#b91c1c' : '#0f766e';
+        statusMsgDiv.style.borderLeft = isError ? '3px solid #dc2626' : '3px solid #0891b2';
+        setTimeout(() => {
+            if ((statusMsgDiv.innerHTML === `✅ ${msg}` || statusMsgDiv.innerHTML === `⚠️ ${msg}`) && !msg.includes('Chargement')) {
+                if (currentPixelData) statusMsgDiv.innerHTML = "✅ Image chargée";
+                else statusMsgDiv.innerHTML = "✅ Prêt";
+                statusMsgDiv.style.borderLeft = currentPixelData ? '3px solid #0891b2' : '3px solid #94a3b8';
+            }
+        }, 3000);
+    }
+
+    function applyWindowing(pixelValue) {
+        const wl = parseFloat(windowLevelSlider.value);
+        const ww = parseFloat(windowWidthSlider.value);
+        let val = pixelValue * currentRescaleSlope + currentRescaleIntercept;
+        const min = wl - ww / 2;
+        const max = wl + ww / 2;
+        let value = Math.min(max, Math.max(min, val));
+        let normalized = (value - min) / (max - min);
+        if (isInverted) normalized = 1 - normalized;
+        return Math.min(255, Math.max(0, Math.floor(normalized * 255)));
+    }
+
+    function renderImage() {
+        if (renderRequested) return;
+        renderRequested = true;
+        
+        requestAnimationFrame(() => {
+            try {
+                if (!currentPixelData || currentRows === 0 || currentCols === 0) {
+                    renderRequested = false;
+                    return;
+                }
+                
+                wlValueDisplay.innerText = Math.round(windowLevelSlider.value);
+                wwValueDisplay.innerText = Math.round(windowWidthSlider.value);
+                zoomLevelDisplay.innerText = `Zoom: ${Math.round(currentZoom * 100)}%`;
+                
+                const imageData = ctx.createImageData(currentCols, currentRows);
+                const pixels = currentPixelData;
+                const data = imageData.data;
+                
+                for (let i = 0; i < pixels.length; i++) {
+                    const intensity = applyWindowing(pixels[i]);
+                    const idx = i * 4;
+                    data[idx] = intensity;
+                    data[idx + 1] = intensity;
+                    data[idx + 2] = intensity;
+                    data[idx + 3] = 255;
+                }
+                
+                let tempCanvas = document.createElement('canvas');
+                let tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = currentCols;
+                tempCanvas.height = currentRows;
+                tempCtx.putImageData(imageData, 0, 0);
+                
+                // Appliquer flip
+                let flipCanvas = tempCanvas;
+                if (currentFlipH || currentFlipV) {
+                    const flipCanvasElem = document.createElement('canvas');
+                    flipCanvasElem.width = currentCols;
+                    flipCanvasElem.height = currentRows;
+                    const flipCtx = flipCanvasElem.getContext('2d');
+                    flipCtx.save();
+                    flipCtx.scale(currentFlipH ? -1 : 1, currentFlipV ? -1 : 1);
+                    flipCtx.drawImage(tempCanvas, 
+                        currentFlipH ? -currentCols : 0, 
+                        currentFlipV ? -currentRows : 0);
+                    flipCtx.restore();
+                    flipCanvas = flipCanvasElem;
+                }
+                
+                // Appliquer rotation
+                const rad = (currentRotation * Math.PI) / 180;
+                const cos = Math.abs(Math.cos(rad));
+                const sin = Math.abs(Math.sin(rad));
+                const rotatedWidth = Math.floor(currentCols * cos + currentRows * sin);
+                const rotatedHeight = Math.floor(currentCols * sin + currentRows * cos);
+                
+                const rotatedCanvas = document.createElement('canvas');
+                rotatedCanvas.width = rotatedWidth;
+                rotatedCanvas.height = rotatedHeight;
+                const rotatedCtx = rotatedCanvas.getContext('2d');
+                rotatedCtx.fillStyle = '#f8fafc';
+                rotatedCtx.fillRect(0, 0, rotatedWidth, rotatedHeight);
+                rotatedCtx.save();
+                rotatedCtx.translate(rotatedWidth / 2, rotatedHeight / 2);
+                rotatedCtx.rotate(rad);
+                rotatedCtx.drawImage(flipCanvas, -currentCols / 2, -currentRows / 2);
+                rotatedCtx.restore();
+                
+                canvas.width = rotatedWidth * currentZoom;
+                canvas.height = rotatedHeight * currentZoom;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.save();
+                ctx.translate(currentTranslateX, currentTranslateY);
+                ctx.drawImage(rotatedCanvas, 0, 0, rotatedWidth * currentZoom, rotatedHeight * currentZoom);
+                ctx.restore();
+            } catch (err) {
+                console.warn("Render error:", err);
+            } finally {
+                renderRequested = false;
+            }
+        });
+    }
+
+    function setPreset(preset) {
+        if (!currentPixelData) return;
+        let wl, ww;
+        switch(preset) {
+            case 'brain': wl = 400; ww = 80; break;
+            case 'bone': wl = 500; ww = 2000; break;
+            case 'lungs': wl = -600; ww = 1500; break;
+            case 'soft': wl = 400; ww = 400; break;
+            default: return;
+        }
+        windowLevelSlider.value = wl;
+        windowWidthSlider.value = ww;
+        renderImage();
+        setStatus(`Préréglage ${preset.toUpperCase()} appliqué`);
+    }
+
+    function resetView() {
+        currentZoom = 1;
+        currentTranslateX = 0;
+        currentTranslateY = 0;
+        currentRotation = 0;
+        currentFlipH = false;
+        currentFlipV = false;
+        isInverted = false;
+        toolInvert.classList.remove('active');
+        if (currentPixelData) {
+            windowLevelSlider.value = (currentMin + currentMax) / 2;
+            windowWidthSlider.value = (currentMax - currentMin) || 400;
+        }
+        renderImage();
+        setStatus("Vue réinitialisée");
+    }
+
+    // Événements souris
+    function onMouseDown(e) {
+        if (!currentPixelData) return;
+        e.preventDefault();
+        if (activeTool === 'pan') {
+            isDragging = true;
+            dragStartX = e.clientX - currentTranslateX;
+            dragStartY = e.clientY - currentTranslateY;
+            canvas.style.cursor = 'grabbing';
+        }
+    }
+    
+    function onMouseMove(e) {
+        if (!currentPixelData) return;
+        if (isDragging && activeTool === 'pan') {
+            currentTranslateX = e.clientX - dragStartX;
+            currentTranslateY = e.clientY - dragStartY;
+            renderImage();
+        }
+    }
+    
+    function onMouseUp() {
+        isDragging = false;
+        canvas.style.cursor = activeTool === 'pan' ? 'grab' : 'zoom-in';
+    }
+    
+    function onWheel(e) {
+        if (!currentPixelData) return;
+        e.preventDefault();
+        if (activeTool === 'zoom') {
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            let newZoom = currentZoom + delta;
+            newZoom = Math.max(0.3, Math.min(5, newZoom));
+            currentZoom = newZoom;
+            renderImage();
+        } else if (activeTool === 'wl') {
+            const delta = e.deltaY > 0 ? -10 : 10;
+            let newWL = parseFloat(windowLevelSlider.value) + delta;
+            newWL = Math.max(-1000, Math.min(2000, newWL));
+            windowLevelSlider.value = newWL;
+            renderImage();
+        }
+    }
+
+    function loadDicomFile(file) {
+        if (!file) { setStatus("Aucun fichier", true); return; }
+        
+        // Vérifier l'extension
+        const fileName = file.name.toLowerCase();
+        if (!fileName.endsWith('.dcm') && !fileName.endsWith('.dic') && !fileName.endsWith('.dicom')) {
+            setStatus("Format non supporté. Utilisez .dcm", true);
+            return;
+        }
+        
+        setStatus(`Chargement de ${file.name}...`);
+        
+        const fileReader = new FileReader();
+        fileReader.onload = function(e) {
+            try {
+                const byteArray = new Uint8Array(e.target.result);
+                
+                // Vérifier le préfixe DICOM
+                const prefix = String.fromCharCode(byteArray[128], byteArray[129], byteArray[130], byteArray[131]);
+                if (prefix !== 'DICM') {
+                    setStatus("Fichier DICOM invalide (en-tête manquant)", true);
+                    return;
+                }
+                
+                // Parse DICOM
+                const dataSet = dicomParser.parseDicom(byteArray);
+                
+                // Extraire les dimensions
+                currentRows = dataSet.uint16('x00280010');
+                currentCols = dataSet.uint16('x00280011');
+                
+                if (!currentRows || !currentCols || currentRows === 0 || currentCols === 0) {
+                    throw new Error("Dimensions d'image invalides");
+                }
+                
+                // Extraire les données pixel
+                const pixelDataElement = dataSet.elements.x7fe00010;
+                if (!pixelDataElement) {
+                    throw new Error("Aucune donnée pixel trouvée");
+                }
+                
+                const bitsAllocated = dataSet.uint16('x00280100') || 16;
+                const pixelRepresentation = dataSet.uint16('x00280103') || 0;
+                const offset = pixelDataElement.dataOffset;
+                const length = pixelDataElement.length;
+                
+                // Lire les pixels selon le format
+                if (bitsAllocated === 16) {
+                    if (pixelRepresentation === 1) {
+                        // Signed 16-bit
+                        const int16Array = new Int16Array(byteArray.buffer, offset, length / 2);
+                        currentPixelData = new Uint16Array(int16Array.length);
+                        for (let i = 0; i < int16Array.length; i++) {
+                            currentPixelData[i] = int16Array[i] + 32768;
+                        }
+                    } else {
+                        // Unsigned 16-bit
+                        currentPixelData = new Uint16Array(byteArray.buffer, offset, length / 2);
+                    }
+                } else if (bitsAllocated === 8) {
+                    // 8-bit
+                    const uint8Array = new Uint8Array(byteArray.buffer, offset, length);
+                    currentPixelData = new Uint16Array(uint8Array.length);
+                    for (let i = 0; i < uint8Array.length; i++) {
+                        currentPixelData[i] = uint8Array[i];
+                    }
+                } else {
+                    throw new Error(`Bits non supportés: ${bitsAllocated}`);
+                }
+                
+                // Ajuster la taille si nécessaire
+                const expectedSize = currentRows * currentCols;
+                if (currentPixelData.length > expectedSize) {
+                    currentPixelData = currentPixelData.slice(0, expectedSize);
+                }
+                
+                // Calculer min/max
+                currentMin = Math.min(...currentPixelData);
+                currentMax = Math.max(...currentPixelData);
+                
+                // Rescale slope/intercept
+                if (dataSet.elements.x00281053) {
+                    const slope = dataSet.floatString('x00281053');
+                    if (!isNaN(slope) && slope !== null) currentRescaleSlope = slope;
+                }
+                if (dataSet.elements.x00281052) {
+                    const intercept = dataSet.floatString('x00281052');
+                    if (!isNaN(intercept) && intercept !== null) currentRescaleIntercept = intercept;
+                }
+                
+                // Window settings par défaut
+                let wc = null, ww = null;
+                if (dataSet.elements.x00281050) wc = dataSet.floatString('x00281050');
+                if (dataSet.elements.x00281051) ww = dataSet.floatString('x00281051');
+                
+                if (wc && ww && !isNaN(wc) && !isNaN(ww) && ww > 0) {
+                    windowLevelSlider.value = wc;
+                    windowWidthSlider.value = ww;
+                } else {
+                    windowLevelSlider.value = (currentMin + currentMax) / 2;
+                    windowWidthSlider.value = (currentMax - currentMin) || 400;
+                }
+                
+                // Mettre à jour les informations patient
+                patientNameEl.innerText = dataSet.string('x00100010') || '---';
+                patientIDEl.innerText = dataSet.string('x00100020') || '---';
+                studyDateEl.innerText = dataSet.string('x00080020') || '---';
+                seriesDescEl.innerText = dataSet.string('x0008103e') || '---';
+                modalityEl.innerText = dataSet.string('x00080060') || '---';
+                imageSizeEl.innerText = `${currentCols} × ${currentRows}`;
+                huRangeEl.innerText = `${Math.round(currentMin)} / ${Math.round(currentMax)}`;
+                
+                // Réinitialiser et afficher
+                resetView();
+                uploadOverlay.classList.add('hidden');
+                setStatus(`Succès: ${file.name} (${currentCols}x${currentRows})`);
+                
+            } catch (err) {
+                console.error('Erreur DICOM:', err);
+                setStatus(`Erreur: ${err.message}`, true);
+                currentPixelData = null;
+            }
+        };
+        
+        fileReader.onerror = () => {
+            setStatus("Erreur de lecture du fichier", true);
+        };
+        
+        fileReader.readAsArrayBuffer(file);
+    }
+
+    // Event listeners
+    uploadBtnHeader.addEventListener('click', () => dicomInput.click());
+    dicomInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            loadDicomFile(e.target.files[0]);
+        }
+    });
+    
+    // Drag & drop
+    const dropZone = document.getElementById('dicomViewport');
+    document.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+    
+    document.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0)

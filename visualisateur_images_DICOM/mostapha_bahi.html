@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>neuroSCANN | Multi-Spectrum Viewer</title>
+    
+    <!-- Dependencies -->
+    <script src="https://unpkg.com/dicom-parser@1.8.3/dist/dicomParser.min.js"></script>
+    <script src="https://unpkg.com/cornerstone-core@2.3.0/dist/cornerstone.min.js"></script>
+    <script src="https://unpkg.com/cornerstone-wado-image-loader@3.1.2/dist/cornerstoneWADOImageLoader.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            /* Palette: Blue, Green, Yellow */
+            --electric-blue: #00d2ff;
+            --neon-green: #39ff14;
+            --bright-yellow: #fefe33;
+            --bg-deep: #050a0f;
+            --panel-glass: rgba(15, 23, 42, 0.9);
+            --text-light: #f1f5f9;
+            --gradient-main: linear-gradient(135deg, var(--electric-blue), var(--neon-green), var(--bright-yellow));
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg-deep);
+            color: var(--text-light);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            height: 100vh; overflow: hidden; display: flex;
+        }
+
+        /* --- Sidebar: Spectrum Style --- */
+        aside {
+            width: 320px;
+            background: var(--panel-glass);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            display: flex; flex-direction: column;
+            padding: 25px; z-index: 10;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+        }
+
+        .brand {
+            margin-bottom: 35px; text-align: center;
+        }
+        .brand h1 {
+            font-size: 1.5rem; font-weight: 900;
+            background: var(--gradient-main);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1px;
+        }
+
+        .section-tag {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 2px;
+            color: var(--electric-blue); margin-bottom: 15px; display: block;
+        }
+
+        /* --- Custom Inputs & Buttons --- */
+        .btn-spectrum {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-light); padding: 12px; border-radius: 8px;
+            cursor: pointer; width: 100%; transition: 0.3s;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            margin-bottom: 10px; font-weight: 500;
+        }
+        .btn-spectrum:hover {
+            border-color: var(--neon-green);
+            background: rgba(57, 255, 20, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .control-group {
+            background: rgba(0,0,0,0.3); padding: 15px;
+            border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 20px;
+        }
+
+        input[type=range] {
+            width: 100%; height: 5px; accent-color: var(--neon-green);
+            margin: 10px 0; cursor: pointer;
+        }
+
+        /* --- Main Viewer --- */
+        main {
+            flex: 1; position: relative; background: radial-gradient(circle at center, #101a25 0%, #050a0f 100%);
+            display: flex; align-items: center; justify-content: center;
+        }
+        #dicomCanvas { width: 100%; height: 100%; }
+
+        /* --- HUD Overlays --- */
+        .hud {
+            position: absolute; pointer-events: none; padding: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        .hud-tl { top: 10px; left: 10px; }
+        .hud-tr { top: 10px; right: 10px; text-align: right; }
+        .hud-bl { bottom: 10px; left: 10px; font-size: 11px; opacity: 0.6; }
+
+        .status-pill {
+            background: var(--gradient-main); color: #000;
+            padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;
+        }
+
+        .presets-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+        }
+
+        .btn-mini { padding: 8px; font-size: 11px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<aside>
+    <div class="brand">
+        <h1>neuroSCANN</h1>
+        <div style="font-size: 9px; color: var(--bright-yellow)">NEURAL IMAGING SOLUTIONS</div>
+    </div>
+
+    <span class="section-tag">Data Source</span>
+    <button class="btn-spectrum" onclick="document.getElementById('f').click()">
+        <i class="fas fa-file-invoice"></i> Load Files
+    </button>
+    <button class="btn-spectrum" onclick="document.getElementById('d').click()">
+        <i class="fas fa-brain"></i> Load Study
+    </button>
+    <input type="file" id="f" multiple style="display:none">
+    <input type="file" id="d" webkitdirectory directory multiple style="display:none">
+
+    <span class="section-tag" style="margin-top:20px">Navigation</span>
+    <div class="control-group">
+        <div style="display:flex; justify-content:space-between; font-size:12px;">
+            <span>Frame</span>
+            <span id="frameVal" style="color:var(--bright-yellow)">0 / 0</span>
+        </div>
+        <input type="range" id="frameSlider" min="0" max="0" value="0">
+    </div>
+
+    <span class="section-tag">Diagnosis Presets</span>
+    <div class="presets-grid">
+        <button class="btn-spectrum btn-mini" onclick="setPreset('brain')">Brain</button>
+        <button class="btn-spectrum btn-mini" onclick="setPreset('lung')">Lung</button>
+        <button class="btn-spectrum btn-mini" onclick="setPreset('bone')">Bone</button>
+        <button class="btn-spectrum btn-mini" onclick="setPreset('soft')">Soft</button>
+        <button class="btn-spectrum btn-mini" onclick="setPreset('mediastinum')">Mediastinum</button>
+        <button class="btn-spectrum btn-mini" onclick="reset()">Default</button>
+    </div>
+
+    <span class="section-tag" style="margin-top:20px">Luminance</span>
+    <div class="control-group">
+        <label style="font-size:11px">Width (WW)</label>
+        <input type="range" id="ww" min="1" max="2500" value="400">
+        <label style="font-size:11px">Center (WL)</label>
+        <input type="range" id="wl" min="-1000" max="1000" value="40">
+    </div>
+
+    <div style="margin-top:auto; font-size: 11px; text-align: center;">
+        <span class="status-pill">SYSTEM SECURE</span>
+    </div>
+</aside>
+
+<main>
+    <div id="dicomCanvas"></div>
+    
+    <div class="hud hud-tl">
+        <div style="color: var(--electric-blue); font-weight: 700;" id="pName">PATIENT: PENDING...</div>
+        <div id="pId" style="font-size: 12px; opacity: 0.8;">UID: --</div>
+    </div>
+
+    <div class="hud hud-tr">
+        <div style="color: var(--neon-green)" id="zTxt">MAGNIFY: 100%</div>
+        <div id="wwlTxt" style="font-size: 12px;">W: 400 | L: 40</div>
+    </div>
+
+    <div class="hud hud-bl">
+        NEUROSCANN ENGINE | ADVANCED MULTI-MODAL VIEWER
+    </div>
+</main>
+
+<script>
+    // Initialize Cornerstone
+    cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+    cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+    const canvas = document.getElementById('dicomCanvas');
+    cornerstone.enable(canvas);
+
+    let imageIds = [];
+    let currentIdx = 0;
+
+    // Loader[cite: 2]
+    function handle(files) {
+        if (!files.length) return;
+        imageIds = Array.from(files).map(f => cornerstoneWADOImageLoader.wadouri.fileManager.add(f));
+        imageIds.sort();
+
+        const slider = document.getElementById('frameSlider');
+        slider.max = imageIds.length - 1;
+        slider.value = 0;
+        
+        display(0);
+    }
+
+    async function display(idx) {
+        if (idx < 0 || idx >= imageIds.length) return;
+        currentIdx = idx;
+        try {
+            const img = await cornerstone.loadImage(imageIds[idx]);
+            const vp = cornerstone.getDefaultViewportForImage(canvas, img);
+            
+            vp.voi.windowWidth = parseFloat(document.getElementById('ww').value);
+            vp.voi.windowCenter = parseFloat(document.getElementById('wl').value);
+            
+            cornerstone.displayImage(canvas, img, vp);
+            
+            document.getElementById('frameVal').innerText = `${idx + 1} / ${imageIds.length}`;
+            document.getElementById('pName').innerText = `PATIENT: ${img.data.string('x00100010') || 'ANONYMOUS'}`;
+            document.getElementById('pId').innerText = `UID: ${img.data.string('x00100020') || 'N/A'}`;
+            syncHUD();
+        } catch(e) { console.error(e); }
+    }
+
+    function syncHUD() {
+        const vp = cornerstone.getViewport(canvas);
+        if(!vp) return;
+        document.getElementById('zTxt').innerText = `MAGNIFY: ${Math.round(vp.scale * 100)}%`;
+        document.getElementById('wwlTxt').innerText = `W: ${Math.round(vp.voi.windowWidth)} | L: ${Math.round(vp.voi.windowCenter)}`;
+    }
+
+    function setPreset(p) {
+        const config = {
+            brain: [80, 40], lung: [1500, -600], bone: [2000, 500],
+            soft: [400, 40], mediastinum: [350, 50]
+        };
+        document.getElementById('ww').value = config[p][0];
+        document.getElementById('wl').value = config[p][1];
+        updateVp();
+    }
+
+    function updateVp() {
+        const vp = cornerstone.getViewport(canvas);
+        if(!vp) return;
+        vp.voi.windowWidth = parseFloat(document.getElementById('ww').value);
+        vp.voi.windowCenter = parseFloat(document.getElementById('wl').value);
+        cornerstone.setViewport(canvas, vp);
+        syncHUD();
+    }
+
+    function reset() {
+        cornerstone.reset(canvas);
+        syncHUD();
+    }
+
+    // Events[cite: 2]
+    document.getElementById('f').addEventListener('change', e => handle(e.target.files));
+    document.getElementById('d').addEventListener('change', e => handle(e.target.files));
+    document.getElementById('frameSlider').addEventListener('input', e => display(parseInt(e.target.value)));
+    document.getElementById('ww').addEventListener('input', updateVp);
+    document.getElementById('wl').addEventListener('input', updateVp);
+
+    // Mouse Interaction
+    canvas.addEventListener('mousedown', (e) => {
+        const start = { x: e.pageX, y: e.pageY };
+        const move = (m) => {
+            const vp = cornerstone.getViewport(canvas);
+            if (e.button === 0) { // Pan
+                vp.translation.x += (m.pageX - start.x) / vp.scale;
+                vp.translation.y += (m.pageY - start.y) / vp.scale;
+            } else if (e.button === 2) { // Windowing
+                vp.voi.windowWidth += (m.pageX - start.x);
+                vp.voi.windowCenter += (m.pageY - start.y);
+                document.getElementById('ww').value = vp.voi.windowWidth;
+                document.getElementById('wl').value = vp.voi.windowCenter;
+            }
+            start.x = m.pageX; start.y = m.pageY;
+            cornerstone.setViewport(canvas, vp);
+            syncHUD();
+        };
+        const up = () => document.removeEventListener('mousemove', move);
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const vp = cornerstone.getViewport(canvas);
+        vp.scale += (e.deltaY < 0 ? 0.1 : -0.1);
+        vp.scale = Math.max(0.1, vp.scale);
+        cornerstone.setViewport(canvas, vp);
+        syncHUD();
+    });
+
+    canvas.oncontextmenu = e => e.preventDefault();
+</script>
+</body>
+</html>
